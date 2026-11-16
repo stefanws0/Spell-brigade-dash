@@ -89,7 +89,7 @@ internal static class MethodTracer
             }
         }
 
-        ModLog.Info($"Discovery: tracing {Traced.Count} upgrade-related method(s) ({candidates.Count} candidates, {Failed.Count} failed). Level up during a run, then press F5.");
+        ModLog.Info($"Discovery: tracing {Traced.Count} upgrade-related method(s) ({candidates.Count} candidates, {Failed.Count} failed). Level up during a run, then press the report hotkey (Left Ctrl + 1 by default).");
     }
 
     public static string Label(MethodBase m)

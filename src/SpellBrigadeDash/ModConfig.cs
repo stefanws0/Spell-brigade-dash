@@ -90,6 +90,13 @@ internal static class ModConfig
     // ---- Debug ----
     public static ConfigEntry<bool> StartRunWithDash = null!;
     public static ConfigEntry<bool> DebugHotkeys = null!;
+    public static ConfigEntry<string> HotkeyModifier = null!;
+    public static ConfigEntry<string> KeyReport = null!;
+    public static ConfigEntry<string> KeyToggleDash = null!;
+    public static ConfigEntry<string> KeyExtraCharge = null!;
+    public static ConfigEntry<string> KeyQuickRecovery = null!;
+    public static ConfigEntry<string> KeyLongStride = null!;
+    public static ConfigEntry<string> KeyBlazingDash = null!;
 
     public static void Init(ConfigFile cfg)
     {
@@ -191,7 +198,7 @@ internal static class ModConfig
 
         const string disc = "Discovery";
         DiscoveryEnabled = cfg.Bind(disc, "Enabled", true,
-            "Write BepInEx/SpellBrigadeDash-discovery.txt (game classes, damage methods, upgrade types...) when a run starts and when you press F5. Send this file to the mod author.");
+            "Write BepInEx/SpellBrigadeDash-discovery.txt (game classes, damage methods, upgrade types...) when a run starts and when you press the report hotkey (Left Ctrl + 1 by default). Send this file to the mod author.");
         TraceUpgradeMethods = cfg.Bind(disc, "TraceUpgradeMethods", true,
             "Log calls to the game's level-up / upgrade methods so the card hook can be found. Turn off once the cards are wired.");
         TraceMaxMethods = cfg.Bind(disc, "TraceMaxMethods", 80, "Maximum number of game methods traced.");
@@ -200,7 +207,36 @@ internal static class ModConfig
         StartRunWithDash = cfg.Bind(dbg, "StartRunWithDash", true,
             "Give the dash at the start of every run instead of waiting for the level-up card. ON by default until the card hook is wired.");
         DebugHotkeys = cfg.Bind(dbg, "Hotkeys", true,
-            "F5 = write discovery report, F6 = toggle dash unlock, F7 = +1 Charge, F8 = Quick Recovery, F9 = Long Stride, F10 = Blazing Dash.");
+            "Debug hotkeys (hold the modifier, then press the key). Defaults: Left Ctrl + 1 = discovery report, + 2 = toggle dash, " +
+            "+ 3 = +1 Charge, + 4 = Quick Recovery, + 5 = Long Stride, + 6 = Blazing Dash.");
+        const string keyHelp = " Input System control path, e.g. <Keyboard>/1, <Keyboard>/k, <Keyboard>/numpad1, <Keyboard>/f6.";
+        HotkeyModifier = cfg.Bind(dbg, "HotkeyModifier", "<Keyboard>/leftCtrl",
+            "Key that must be held for the debug hotkeys. Empty = no modifier." + keyHelp);
+        KeyReport = cfg.Bind(dbg, "KeyWriteReport", "<Keyboard>/1", "Write the discovery report now." + keyHelp);
+        KeyToggleDash = cfg.Bind(dbg, "KeyToggleDash", "<Keyboard>/2", "Lock / unlock the dash." + keyHelp);
+        KeyExtraCharge = cfg.Bind(dbg, "KeyExtraCharge", "<Keyboard>/3", "Apply the '+1 Dash Charge' card." + keyHelp);
+        KeyQuickRecovery = cfg.Bind(dbg, "KeyQuickRecovery", "<Keyboard>/4", "Apply the 'Quick Recovery' card." + keyHelp);
+        KeyLongStride = cfg.Bind(dbg, "KeyLongStride", "<Keyboard>/5", "Apply the 'Long Stride' card." + keyHelp);
+        KeyBlazingDash = cfg.Bind(dbg, "KeyBlazingDash", "<Keyboard>/6", "Apply the 'Blazing Dash' card." + keyHelp);
+    }
+
+    public static string DebugKeyPath(Controls.DebugKey key) => key switch
+    {
+        Controls.DebugKey.Report => KeyReport.Value,
+        Controls.DebugKey.ToggleDash => KeyToggleDash.Value,
+        Controls.DebugKey.ExtraCharge => KeyExtraCharge.Value,
+        Controls.DebugKey.QuickRecovery => KeyQuickRecovery.Value,
+        Controls.DebugKey.LongStride => KeyLongStride.Value,
+        _ => KeyBlazingDash.Value,
+    };
+
+    /// <summary>"&lt;Keyboard&gt;/leftCtrl" → "Left Ctrl", for log messages.</summary>
+    public static string PrettyKey(string path)
+    {
+        var name = path.Contains('/') ? path[(path.LastIndexOf('/') + 1)..] : path;
+        if (name.Length == 0) return "(none)";
+        var spaced = System.Text.RegularExpressions.Regex.Replace(name, "(?<=[a-z])(?=[A-Z0-9])", " ");
+        return char.ToUpperInvariant(spaced[0]) + spaced[1..];
     }
 
     public static DashBaseStats BaseStats() => new()

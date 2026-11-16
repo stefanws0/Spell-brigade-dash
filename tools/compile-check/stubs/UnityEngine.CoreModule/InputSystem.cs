@@ -52,10 +52,21 @@ namespace UnityEngine.InputSystem
         public Controls.StickControl leftStick => null;
     }
 
-    public class InputControl<TValue> : Il2CppSystem.Object
+    public abstract class InputControl : Il2CppSystem.Object
+    {
+        protected InputControl(IntPtr pointer) : base(pointer) { }
+        public string path => null;
+    }
+
+    public class InputControl<TValue> : InputControl
     {
         public InputControl(IntPtr pointer) : base(pointer) { }
         public TValue ReadValue() => default;
+    }
+
+    public static class InputSystem
+    {
+        public static InputControl FindControl(string path) => null;
     }
 }
 

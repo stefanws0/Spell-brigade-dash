@@ -28,6 +28,6 @@ public class Plugin : BasePlugin
         AddComponent<DashRunner>();
 
         ModLog.Info($"{Name} {Version} loaded. Discovery report: {(ModConfig.DiscoveryEnabled.Value ? "ON" : "off")}, " +
-                    $"debug hotkeys: {(ModConfig.DebugHotkeys.Value ? "ON (F5-F10)" : "off")}.");
+                    $"debug hotkeys: {(ModConfig.DebugHotkeys.Value ? $"ON (hold {ModConfig.PrettyKey(ModConfig.HotkeyModifier.Value)})" : "off")}.");
     }
 }

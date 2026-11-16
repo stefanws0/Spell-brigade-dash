@@ -9,5 +9,5 @@
 - Effects: afterimage trail, dust puff at start and landing, and a whoosh reused from the game's sounds.
 - Co-op: other players' dashes are detected from their movement, so they get i-frames and afterimages.
 - Card system (Dash, +1 Charge, Quick Recovery, Long Stride, Blazing Dash) with configurable rarities and stack
-  limits. It is applied with the debug hotkeys F6 to F10 until the level-up hook is wired.
-- Discovery report (`BepInEx/SpellBrigadeDash-discovery.txt`) and a level-up method trace.
+  limits. It is applied with the debug hotkeys (Left Ctrl + 2..6, rebindable) until the level-up hook is wired.
+- Discovery report (`BepInEx/SpellBrigadeDash-discovery.txt`, Left Ctrl + 1) and a level-up method trace.

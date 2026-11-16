@@ -10,7 +10,7 @@ namespace SpellBrigadeDash.Game;
 /// STATUS: PENDING DISCOVERY. The game's upgrade/rarity classes are unknown, so this bridge is
 /// inactive. The discovery report (upgrade-type and enum sections, plus the method trace written
 /// while you level up) gives what's needed to implement it. Meanwhile, Debug.StartRunWithDash and
-/// the F6-F10 hotkeys stand in for picking cards.
+/// the debug hotkeys (Left Ctrl + 2..6) stand in for picking cards.
 /// </summary>
 internal static class CardBridge
 {

@@ -94,7 +94,7 @@ internal static class DiscoveryReport
         Section("5. Your wizard");
         if (local == null || local.IsDestroyed)
         {
-            sb.AppendLine("(no local wizard found - start a run, then press F5)");
+            sb.AppendLine("(no local wizard found - start a run, then press the report hotkey)");
         }
         else
         {
@@ -134,7 +134,7 @@ internal static class DiscoveryReport
         Section("8. Upgrade / level-up system candidates");
         Try("upgrades", () => DescribeUpgradeTypes(sb));
 
-        Section("9. Method trace (level up during a run, then press F5)");
+        Section("9. Method trace (level up during a run, then press the report hotkey)");
         Try("trace", () =>
         {
             sb.AppendLine($"Traced {MethodTracer.Traced.Count} method(s). Calls so far:");

@@ -52,13 +52,31 @@ internal sealed class LegacyInputBackend : IInputBackend
         return v;
     }
 
-    public bool DebugPressed(DebugKey key) => LegacyInput.GetKeyDown(key switch
+    public bool DebugPressed(DebugKey key)
     {
-        DebugKey.F5 => KeyCode.F5,
-        DebugKey.F6 => KeyCode.F6,
-        DebugKey.F7 => KeyCode.F7,
-        DebugKey.F8 => KeyCode.F8,
-        DebugKey.F9 => KeyCode.F9,
-        _ => KeyCode.F10,
-    });
+        var mod = ToKeyCode(ModConfig.HotkeyModifier.Value);
+        if (mod != KeyCode.None && !LegacyInput.GetKey(mod)) return false;
+        var k = ToKeyCode(ModConfig.DebugKeyPath(key));
+        return k != KeyCode.None && LegacyInput.GetKeyDown(k);
+    }
+
+    /// <summary>Maps an Input System path like "&lt;Keyboard&gt;/1" or "&lt;Keyboard&gt;/leftCtrl" to the legacy KeyCode.</summary>
+    internal static KeyCode ToKeyCode(string path)
+    {
+        var name = (path.Contains('/') ? path[(path.LastIndexOf('/') + 1)..] : path).Trim();
+        if (name.Length == 0) return KeyCode.None;
+        if (name.Length == 1 && char.IsDigit(name[0])) name = "Alpha" + name;
+        else if (name.StartsWith("numpad", StringComparison.OrdinalIgnoreCase) && name.Length == 7 && char.IsDigit(name[6])) name = "Keypad" + name[6];
+        else name = name switch
+        {
+            "leftCtrl" => "LeftControl",
+            "rightCtrl" => "RightControl",
+            "leftAlt" => "LeftAlt",
+            "rightAlt" => "RightAlt",
+            "leftShift" => "LeftShift",
+            "rightShift" => "RightShift",
+            _ => name,
+        };
+        return Enum.TryParse<KeyCode>(name, true, out var k) ? k : KeyCode.None;
+    }
 }

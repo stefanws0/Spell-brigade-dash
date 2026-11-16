@@ -4,14 +4,15 @@ using UnityEngine;
 
 namespace SpellBrigadeDash.Controls;
 
+/// <summary>Debug actions. Default keys: hold Left Ctrl and press 1-6 (rebindable under [Debug] in the config).</summary>
 internal enum DebugKey
 {
-    F5,
-    F6,
-    F7,
-    F8,
-    F9,
-    F10,
+    Report,
+    ToggleDash,
+    ExtraCharge,
+    QuickRecovery,
+    LongStride,
+    BlazingDash,
 }
 
 internal interface IInputBackend

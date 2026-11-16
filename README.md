@@ -20,41 +20,77 @@ game installed, and those weren't available while writing this mod. So this vers
 damage and level-up code at runtime by name** and writes a report:
 
 1. Play a run with the mod installed. A few seconds in, it writes `BepInEx/SpellBrigadeDash-discovery.txt`.
-2. **Level up a few times** (the mod traces the game's level-up methods), dash into some enemies, then press **F5**
-   to refresh the report.
+2. **Level up a few times** (the mod traces the game's level-up methods), dash into some enemies, then press
+   **Left Ctrl + 1** to refresh the report.
 3. Send the report back. The next version uses it to wire the real level-up cards, the co-op sync message
    and Blazing Dash damage. See "Pending after discovery" in `docs/DESIGN.md`.
 
-Until then, **you start each run with the dash**, and the debug hotkeys stand in for picking cards:
-**F6** toggles the dash, **F7** adds +1 Charge, **F8** Quick Recovery, **F9** Long Stride and **F10** Blazing Dash.
+Until then, **you start each run with the dash**, and debug hotkeys stand in for picking cards.
+Hold **Left Ctrl** and press:
 
-## Building (on your PC)
+| Key | Action |
+|---|---|
+| Ctrl + 1 | Write the discovery report now |
+| Ctrl + 2 | Lock / unlock the dash |
+| Ctrl + 3 | +1 Charge |
+| Ctrl + 4 | Quick Recovery |
+| Ctrl + 5 | Long Stride |
+| Ctrl + 6 | Blazing Dash |
 
-IL2CPP mods compile against assemblies that BepInEx generates from *your* game install, so the build happens on
-your machine.
+All of these can be rebound under `[Debug]` in the config (e.g. `<Keyboard>/k`, `<Keyboard>/numpad1`).
 
-1. Install the [.NET SDK 6 or newer](https://dotnet.microsoft.com/download).
-2. Install **BepInExPack IL2CPP** for The Spell Brigade (r2modman / Gale, or by hand from Thunderstore) and **start
-   the game once**. This generates `BepInEx/interop/`.
-3. Copy `GamePaths.props.user.example` to `GamePaths.props.user` and set your game folder, or your r2modman/Gale
-   profile's `BepInEx` folder.
-4. Build:
+## Quick start (Windows)
 
-```bash
-dotnet build src/SpellBrigadeDash -c Release
-```
+IL2CPP mods compile against assemblies that BepInEx generates from *your* game install, so you build it once on
+your PC.
 
-Build and copy straight into `BepInEx/plugins/SpellBrigadeDash/`:
+**Downloads**
+
+| What | Link |
+|---|---|
+| This mod's source (zip of the branch) | https://github.com/stefanws0/Spell-brigade-dash/archive/refs/heads/claude/cool-mccarthy-dscfuz.zip |
+| .NET 8 SDK (x64 installer) | https://dotnet.microsoft.com/download/dotnet/8.0 |
+| Mod manager: r2modman | https://thunderstore.io/c/the-spell-brigade/p/ebkr/r2modman/ |
+| Mod manager: Gale (alternative) | https://thunderstore.io/c/the-spell-brigade/p/Kesomannen/GaleModManager/ |
+| BepInExPack IL2CPP (the mod loader) | https://thunderstore.io/c/the-spell-brigade/p/BepInEx/BepInExPack_IL2CPP/ |
+
+**Steps**
+
+1. Install the **.NET 8 SDK**.
+2. Install **r2modman** (or Gale), select *The Spell Brigade*, create a profile and install **BepInExPack IL2CPP** in it.
+3. Click **Start modded** once and wait until you reach the main menu. BepInEx generates `BepInEx/interop/`
+   on that first start, which can take a minute. Then close the game.
+4. Find your profile's BepInEx folder: r2modman → *Settings* → *Browse profile folder* (Gale: *Open profile folder*).
+5. Unzip this repo, copy `GamePaths.props.user.example` to `GamePaths.props.user`, and set `BepInExDir` to that
+   folder (it must contain `core` and `interop`).
+6. In a terminal in the repo folder, build and install straight into the profile:
 
 ```bash
 dotnet build src/SpellBrigadeDash -c Release -p:DeployToGame=true
 ```
 
-Build a Thunderstore / r2modman zip in `dist/` (to import into r2modman/Gale or upload to Thunderstore):
+7. **Start modded** again. The BepInEx console shows `SpellBrigadeDash 0.1.0 loaded`. Start a run and press Shift.
+
+Other build commands:
+
+```bash
+dotnet build src/SpellBrigadeDash -c Release
+```
 
 ```bash
 dotnet build src/SpellBrigadeDash -c Release -t:Package
 ```
+
+The first builds `src/SpellBrigadeDash/bin/Release/SpellBrigadeDash.dll`. The second builds `dist/SpellBrigadeDash-0.1.0.zip`, which you can import
+in r2modman/Gale (*Settings → Import local mod*) or upload to Thunderstore.
+
+**Files you'll need**
+
+| File (inside the profile's BepInEx folder) | What |
+|---|---|
+| `SpellBrigadeDash-discovery.txt` | The discovery report to send back |
+| `LogOutput.log` | BepInEx log, useful if something breaks |
+| `config/com.stefanws0.spellbrigadedash.cfg` | All settings (exists after the first start with the mod) |
 
 ### Tests and compile-check (no game needed)
 

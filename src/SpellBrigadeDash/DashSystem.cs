@@ -373,18 +373,18 @@ internal sealed class DashSystem
 
     private void HandleHotkeys()
     {
-        if (_input.DebugPressed(DebugKey.F5)) DiscoveryReport.Write(this, "F5");
-        if (_input.DebugPressed(DebugKey.F6))
+        if (_input.DebugPressed(DebugKey.Report)) DiscoveryReport.Write(this, "hotkey");
+        if (_input.DebugPressed(DebugKey.ToggleDash))
         {
             if (_progress.Unlocked) _progress.Lock();
             else _progress.Apply(DashCardId.Dash);
             ModLog.Info($"[debug] Dash {(_progress.Unlocked ? "unlocked" : "locked")}.");
         }
 
-        if (_input.DebugPressed(DebugKey.F7)) ApplyCard(DashCardId.ExtraCharge);
-        if (_input.DebugPressed(DebugKey.F8)) ApplyCard(DashCardId.QuickRecovery);
-        if (_input.DebugPressed(DebugKey.F9)) ApplyCard(DashCardId.LongStride);
-        if (_input.DebugPressed(DebugKey.F10)) ApplyCard(DashCardId.BlazingDash);
+        if (_input.DebugPressed(DebugKey.ExtraCharge)) ApplyCard(DashCardId.ExtraCharge);
+        if (_input.DebugPressed(DebugKey.QuickRecovery)) ApplyCard(DashCardId.QuickRecovery);
+        if (_input.DebugPressed(DebugKey.LongStride)) ApplyCard(DashCardId.LongStride);
+        if (_input.DebugPressed(DebugKey.BlazingDash)) ApplyCard(DashCardId.BlazingDash);
     }
 
     /// <summary>Apply a dash card to the local player (debug hotkeys now, the level-up screen later).</summary>

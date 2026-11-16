@@ -13,9 +13,10 @@ Press **Left Shift** (or **LB** on a controller) for a quick, short dash.
 This first version finds the game's internals by name at runtime. Because of that:
 
 - You **start every run with the dash** (`Debug.StartRunWithDash = true`), because the level-up card hook isn't wired yet.
-  To test the upgrades, use **F6–F10**: F6 toggles the dash, F7 adds +1 Charge, F8 Quick Recovery, F9 Long Stride and F10 Blazing Dash.
-- The mod writes **`BepInEx/SpellBrigadeDash-discovery.txt`** a few seconds into a run, and again whenever you press **F5**.
-  Level up a few times during a run, press F5 and send that file to the author. It's what the next version uses to
+  To test the upgrades, hold **Left Ctrl** and press **2** to toggle the dash, **3** for +1 Charge, **4** for Quick Recovery,
+  **5** for Long Stride or **6** for Blazing Dash. You can rebind these under `[Debug]` in the config.
+- The mod writes **`BepInEx/SpellBrigadeDash-discovery.txt`** a few seconds into a run, and again whenever you press **Left Ctrl + 1**.
+  Level up a few times during a run, press Ctrl + 1 and send that file to the author. It's what the next version uses to
   wire the real level-up cards, co-op sync and Blazing Dash damage.
 
 ## Multiplayer

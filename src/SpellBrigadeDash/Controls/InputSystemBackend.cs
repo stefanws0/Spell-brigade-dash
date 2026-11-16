@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -91,19 +92,41 @@ internal sealed class InputSystemBackend : IInputBackend
 
     public bool DebugPressed(DebugKey key)
     {
-        var kb = Keyboard.current;
-        if (kb == null) return false;
-        var control = key switch
+        var modifierPath = ModConfig.HotkeyModifier.Value;
+        if (!string.IsNullOrWhiteSpace(modifierPath))
         {
-            DebugKey.F5 => kb.f5Key,
-            DebugKey.F6 => kb.f6Key,
-            DebugKey.F7 => kb.f7Key,
-            DebugKey.F8 => kb.f8Key,
-            DebugKey.F9 => kb.f9Key,
-            DebugKey.F10 => kb.f10Key,
-            _ => null,
-        };
+            var mod = Control(modifierPath);
+            if (mod == null || !mod.isPressed) return false;
+        }
+
+        var control = Control(ModConfig.DebugKeyPath(key));
         return control != null && control.wasPressedThisFrame;
+    }
+
+    // Resolved controls per path. A path that doesn't resolve (no keyboard yet, typo) is retried every 2s.
+    private readonly Dictionary<string, (ButtonControl? control, float resolvedAt)> _controls = new();
+
+    private ButtonControl? Control(string path)
+    {
+        path = path.Trim();
+        if (path.Length == 0) return null;
+        var now = Time.unscaledTime;
+        if (_controls.TryGetValue(path, out var entry) && (entry.control != null || now - entry.resolvedAt < 2f))
+            return entry.control;
+
+        ButtonControl? control = null;
+        try
+        {
+            control = UnityEngine.InputSystem.InputSystem.FindControl(path)?.TryCast<ButtonControl>();
+        }
+        catch (Exception ex)
+        {
+            ModLog.WarnOnce("findcontrol-" + path, $"Hotkey '{path}' could not be resolved: {ex.Message}");
+        }
+
+        if (control == null) ModLog.WarnOnce("nocontrol-" + path, $"Hotkey '{path}' doesn't match any key (check the [Debug] section of the config).");
+        _controls[path] = (control, now);
+        return control;
     }
 
     private static bool Down(ButtonControl? c) => c != null && c.isPressed;
