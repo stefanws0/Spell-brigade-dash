@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- COMPILE-CHECK STUB ONLY. Mirrors the tiny part of the generated Il2Cppmscorlib the mod touches. Never shipped. -->
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>Il2Cppmscorlib</AssemblyName>
+    <AssemblyVersion>4.0.0.0</AssemblyVersion>
+    <Nullable>disable</Nullable>
+    <NoWarn>$(NoWarn);CS0660;CS0661;CS8618</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(BepInExCore)\Il2CppInterop.Runtime.dll" Private="false" />
+    <Reference Include="$(BepInExCore)\Il2CppInterop.Common.dll" Private="false" />
+  </ItemGroup>
+</Project>

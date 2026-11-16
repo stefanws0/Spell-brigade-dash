@@ -1,0 +1,449 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SpellBrigadeDash.Controls;
+using SpellBrigadeDash.Core;
+using SpellBrigadeDash.Discovery;
+using SpellBrigadeDash.Fx;
+using SpellBrigadeDash.Game;
+using SpellBrigadeDash.Motion;
+using UnityEngine;
+
+namespace SpellBrigadeDash;
+
+/// <summary>
+/// The mod's main loop, called by <see cref="DashRunner"/> every frame.
+///
+/// Update:     input → find wizard → recharge → start dash → watch other players (co-op i-frames)
+/// LateUpdate: move the dashing wizard (after the game's own movement) → effects → bar
+/// </summary>
+internal sealed class DashSystem
+{
+    private const float FlameSpacingFactor = 0.35f; // flames per wizard-size of distance
+
+    private readonly DashInput _input = new();
+    private readonly DashProgress _progress = new();
+    private readonly DashCharges _charges = new(0, 2f);
+    private readonly FxManager _fx = new();
+    private readonly DashBar _bar = new();
+    private readonly RemoteDashDetector _remote = new();
+    private readonly List<RemoteEmitter> _remoteEmitters = new();
+    private readonly HashSet<long> _hookedRemotes = new();
+
+    private IReadOnlyList<DashCardDef> _cards = Array.Empty<DashCardDef>();
+    private DashBaseStats _stats = new();
+    private Color _ghostTint;
+    private Color _dustColor;
+    private bool _initialized;
+    private ActiveDash? _active;
+    private float _bufferedUntil = -1f;
+    private float _discoveryAt = -1f;
+    private int _remoteDashes;
+    private int _localDashes;
+
+    public static DashSystem Instance { get; } = new();
+
+    public PlayerLocator Locator { get; } = new();
+    public SoundPlayer Sound { get; } = new();
+
+    // =========================================================================== frame callbacks
+
+    public void Update()
+    {
+        var now = Time.time;
+        var dt = Time.deltaTime;
+        try
+        {
+            if (!_initialized) Init();
+            Invulnerability.Now = now;
+
+            _input.Poll();
+            if (ModConfig.DebugHotkeys.Value) HandleHotkeys();
+
+            Locator.Update(Time.unscaledTime);
+            var p = Locator.Local;
+            if (p != null && p.IsDestroyed) p = null;
+            if (p != null) TrackMovement(p, dt);
+
+            SyncCharges();
+            var refilled = _charges.Tick(dt);
+            if (refilled > 0) _bar.OnRefilled(_charges, refilled, now);
+
+            if (p != null)
+            {
+                if (_input.DashPressed) OnDashPressed(p, now);
+                else if (_active == null && _bufferedUntil >= now)
+                {
+                    _bufferedUntil = -1f;
+                    OnDashPressed(p, now);
+                }
+            }
+
+            UpdateRemotes(now);
+            Invulnerability.Prune();
+
+            if (_discoveryAt > 0f && Time.unscaledTime >= _discoveryAt)
+            {
+                _discoveryAt = -1f;
+                DiscoveryReport.Write(this, "run started");
+            }
+        }
+        catch (Exception ex)
+        {
+            ModLog.ErrorThrottled("DashSystem.Update", ex, Time.unscaledTime);
+        }
+    }
+
+    public void LateUpdate()
+    {
+        var now = Time.time;
+        var dt = Time.deltaTime;
+        try
+        {
+            var p = Locator.Local;
+            if (p != null && p.IsDestroyed) p = null;
+
+            if (_active != null)
+            {
+                if (p == null) _active = null;
+                else StepDash(p, now, dt);
+            }
+
+            _fx.Update(dt);
+            var allowed = p != null && Time.timeScale > 0f && !Locator.IsDead(p);
+            _bar.Update(p, _charges, allowed, now, Time.unscaledDeltaTime);
+        }
+        catch (Exception ex)
+        {
+            ModLog.ErrorThrottled("DashSystem.LateUpdate", ex, Time.unscaledTime);
+        }
+    }
+
+    // =========================================================================== setup / run start
+
+    private void Init()
+    {
+        _initialized = true;
+        _stats = ModConfig.BaseStats();
+        _cards = DashCards.Build(ModConfig.CardSettings());
+        _ghostTint = FxAssets.ParseColor(ModConfig.AfterimageColor.Value, new Color(0.56f, 0.85f, 1f, 0.6f));
+        _dustColor = FxAssets.ParseColor(ModConfig.DustColor.Value, new Color(0.9f, 0.86f, 0.78f, 0.8f));
+        Locator.LocalChanged += OnNewLocalPlayer;
+
+        Il2CppNames.LoadInteropAssemblies();
+        DamageHooks.HookConfigured();
+        MethodTracer.Install();
+    }
+
+    /// <summary>A new local wizard object means a new run: reset the run's cards and charges.</summary>
+    private void OnNewLocalPlayer(PlayerInfo p)
+    {
+        _stats = ModConfig.BaseStats();
+        _active = null;
+        _bufferedUntil = -1f;
+        _fx.Clear();
+        _remote.Clear();
+        _remoteEmitters.Clear();
+        _progress.Reset();
+        if (ModConfig.StartRunWithDash.Value) _progress.Apply(DashCardId.Dash);
+        SyncCharges();
+        _charges.RefillAll();
+        ModLog.Info($"New run detected. Dash {(_progress.Unlocked ? "unlocked (Debug.StartRunWithDash)" : "locked until the Dash card is picked")}.");
+
+        DamageHooks.SetLocal(p);
+        DamageHooks.HookFor(p);
+
+        if (ModConfig.DiscoveryEnabled.Value) _discoveryAt = Time.unscaledTime + 5f;
+    }
+
+    private void SyncCharges()
+    {
+        var max = DashTuning.MaxCharges(_stats, _progress);
+        if (_charges.Max != max)
+        {
+            var firstUnlock = _charges.Max == 0 && max > 0;
+            _charges.SetMax(max);
+            if (firstUnlock) _charges.RefillAll();
+        }
+
+        _charges.RechargeSeconds = DashTuning.RechargeSeconds(_stats, _progress);
+    }
+
+    // =========================================================================== dashing
+
+    private void OnDashPressed(PlayerInfo p, float now)
+    {
+        if (Time.timeScale <= 0f || !_progress.Unlocked) return;
+        if (Locator.IsDead(p)) return;
+
+        if (_active != null)
+        {
+            // Pressed during a dash: queue the next one if this one is about to end.
+            var timeLeft = _active.Remaining / Math.Max(0.01f, _active.Speed);
+            if (timeLeft <= ModConfig.InputBuffer.Value) _bufferedUntil = now + timeLeft + 0.05f;
+            return;
+        }
+
+        if (!_charges.TryConsume())
+        {
+            _bar.OnEmptyPress(now);
+            return;
+        }
+
+        StartDash(p, now);
+    }
+
+    private void StartDash(PlayerInfo p, float now)
+    {
+        var dir = ResolveDirection(p);
+        var distance = DashTuning.Distance(_stats, _progress);
+        var duration = DashTuning.Duration(_stats);
+        _active = new ActiveDash
+        {
+            Dir = dir,
+            Remaining = distance,
+            Speed = distance / duration,
+            MaxTime = duration * 2f + 0.05f,
+            FlameSpacing = Math.Max(0.05f, p.VisualSize * FlameSpacingFactor),
+        };
+        _localDashes++;
+
+        var iframes = DashTuning.InvulnerableSeconds(_stats);
+        Invulnerability.Grant(p, iframes);
+        NetBridge.SendDash(iframes);
+
+        _bar.OnDash(now);
+        if (ModConfig.DustPuff.Value) _fx.SpawnPuff(p, p.Feet, dir, _dustColor, 1f);
+        if (ModConfig.Afterimages.Value) _fx.SpawnAfterimage(p, _ghostTint, ModConfig.AfterimageLifetime.Value);
+        _active.NextGhost = ModConfig.AfterimageInterval.Value;
+        Sound.Play(_fx.Root, now);
+    }
+
+    private void StepDash(PlayerInfo p, float now, float dt)
+    {
+        var a = _active!;
+        if (dt <= 0f) return; // paused
+        a.Elapsed += dt;
+
+        var step = Math.Min(a.Speed * dt, a.Remaining);
+        var moved = step > 0f ? DashMotor.Move(p, a.Dir, step) : 0f;
+        a.Remaining -= step;
+        a.Travelled += moved;
+
+        if (ModConfig.Afterimages.Value && a.Elapsed >= a.NextGhost)
+        {
+            _fx.SpawnAfterimage(p, _ghostTint, ModConfig.AfterimageLifetime.Value);
+            a.NextGhost = a.Elapsed + Math.Max(0.01f, ModConfig.AfterimageInterval.Value);
+        }
+
+        if (DashTuning.Blazing(_progress))
+        {
+            ModLog.InfoOnce("blazing-pending", "Blazing Dash: trail visuals active; enemy damage is wired after the discovery report.");
+            var feet = p.Feet;
+            while (a.Travelled >= a.NextFlameAt)
+            {
+                var back = a.Travelled - a.NextFlameAt;
+                _fx.SpawnFlame(p, feet - a.Dir * back, ModConfig.BlazingTrailSeconds.Value);
+                a.NextFlameAt += a.FlameSpacing;
+            }
+        }
+
+        var blocked = step > 0.0001f && moved < step * 0.3f;
+        if (a.Remaining <= 0.0001f || blocked || a.Elapsed >= a.MaxTime) EndDash(p);
+    }
+
+    private void EndDash(PlayerInfo p)
+    {
+        var a = _active!;
+        _active = null;
+        if (ModConfig.DustPuffOnLanding.Value) _fx.SpawnPuff(p, p.Feet, a.Dir, _dustColor, 0.55f);
+    }
+
+    /// <summary>Movement input → world direction; standing still → last movement / facing direction.</summary>
+    private Vector3 ResolveDirection(PlayerInfo p)
+    {
+        var input = _input.Move;
+        if (input.sqrMagnitude > 0.04f)
+        {
+            input.Normalize();
+            if (p.Is2D) return new Vector3(input.x, input.y, 0f);
+
+            var fwd = Vector3.forward;
+            var right = Vector3.right;
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                var ct = cam.transform;
+                fwd = ct.forward;
+                fwd.y = 0f;
+                if (fwd.sqrMagnitude < 1e-4f)
+                {
+                    fwd = ct.up; // camera looking straight down
+                    fwd.y = 0f;
+                }
+
+                fwd.Normalize();
+                right = ct.right;
+                right.y = 0f;
+                right.Normalize();
+            }
+
+            return (fwd * input.y + right * input.x).normalized;
+        }
+
+        if (p.LastMoveDir.sqrMagnitude > 0.01f) return p.LastMoveDir;
+
+        if (p.Is2D)
+        {
+            var sr = p.MainRenderer?.TryCast<SpriteRenderer>();
+            var sx = sr != null && sr.flipX ? -1f : 1f;
+            if (p.RootT.lossyScale.x < 0f) sx = -sx;
+            return new Vector3(sx, 0f, 0f);
+        }
+
+        var f = p.RootT.forward;
+        f.y = 0f;
+        return f.sqrMagnitude > 1e-4f ? f.normalized : Vector3.forward;
+    }
+
+    private void TrackMovement(PlayerInfo p, float dt)
+    {
+        var pos = p.RootT.position;
+        if (p.HasLastPos && dt > 0f && _active == null)
+        {
+            var delta = pos - p.LastPos;
+            if (p.Is2D) delta.z = 0f;
+            else delta.y = 0f;
+            var speed = delta.magnitude / dt;
+            if (speed > 0.3f)
+            {
+                p.LastMoveDir = delta.normalized;
+                if (speed < _stats.Distance / DashTuning.Duration(_stats) * 0.5f) p.MaxWalkSpeed = Math.Max(p.MaxWalkSpeed, speed);
+            }
+        }
+
+        p.LastPos = pos;
+        p.HasLastPos = true;
+    }
+
+    // =========================================================================== other players
+
+    private void UpdateRemotes(float now)
+    {
+        var wantIFrames = ModConfig.RemoteIFrames.Value;
+        var wantGhosts = ModConfig.RemoteAfterimages.Value;
+        if (!wantIFrames && !wantGhosts) return;
+
+        var baseSpeed = _stats.Distance / DashTuning.Duration(_stats);
+        _remote.SpeedThreshold = baseSpeed * ModConfig.RemoteDashSpeedFactor.Value;
+        _remote.MaxJump = _stats.Distance * 4f;
+
+        foreach (var r in Locator.Remotes)
+        {
+            if (r.IsDestroyed) continue;
+            if (_hookedRemotes.Add(r.Id)) DamageHooks.HookFor(r);
+
+            var f = r.RootT.position;
+            if (!_remote.Observe(r.Id, new System.Numerics.Vector3(f.x, f.y, f.z), now)) continue;
+
+            _remoteDashes++;
+            if (wantIFrames) Invulnerability.Grant(r, DashTuning.InvulnerableSeconds(_stats) + 0.1f);
+            if (wantGhosts) _remoteEmitters.Add(new RemoteEmitter(r, now + DashTuning.Duration(_stats)));
+        }
+
+        for (var i = _remoteEmitters.Count - 1; i >= 0; i--)
+        {
+            var e = _remoteEmitters[i];
+            if (e.Player.IsDestroyed || now > e.Until)
+            {
+                _remoteEmitters.RemoveAt(i);
+                continue;
+            }
+
+            if (now < e.Next) continue;
+            _fx.SpawnAfterimage(e.Player, _ghostTint, ModConfig.AfterimageLifetime.Value);
+            e.Next = now + Math.Max(0.02f, ModConfig.AfterimageInterval.Value);
+        }
+
+        _remote.Prune(now);
+    }
+
+    // =========================================================================== debug / cards
+
+    private void HandleHotkeys()
+    {
+        if (_input.DebugPressed(DebugKey.F5)) DiscoveryReport.Write(this, "F5");
+        if (_input.DebugPressed(DebugKey.F6))
+        {
+            if (_progress.Unlocked) _progress.Lock();
+            else _progress.Apply(DashCardId.Dash);
+            ModLog.Info($"[debug] Dash {(_progress.Unlocked ? "unlocked" : "locked")}.");
+        }
+
+        if (_input.DebugPressed(DebugKey.F7)) ApplyCard(DashCardId.ExtraCharge);
+        if (_input.DebugPressed(DebugKey.F8)) ApplyCard(DashCardId.QuickRecovery);
+        if (_input.DebugPressed(DebugKey.F9)) ApplyCard(DashCardId.LongStride);
+        if (_input.DebugPressed(DebugKey.F10)) ApplyCard(DashCardId.BlazingDash);
+    }
+
+    /// <summary>Apply a dash card to the local player (debug hotkeys now, the level-up screen later).</summary>
+    public void ApplyCard(DashCardId id)
+    {
+        var def = _cards.FirstOrDefault(c => c.Id == id);
+        if (def == null) return;
+        if (id != DashCardId.Dash && !_progress.Unlocked) _progress.Apply(DashCardId.Dash);
+        if (!DashCards.IsAvailable(def, _progress))
+        {
+            ModLog.Info($"[cards] {def.Title} is at its limit ({_progress.Stacks(id)}/{def.MaxStacks}).");
+            return;
+        }
+
+        _progress.Apply(id);
+        SyncCharges();
+        ModLog.Info($"[cards] {def.Title} ({def.Rarity}) applied. Run upgrades: {_progress}. " +
+                    $"Charges {_charges.Max}, recharge {_charges.RechargeSeconds:0.00}s, distance {DashTuning.Distance(_stats, _progress):0.00}.");
+    }
+
+    public void AppendStatus(StringBuilder sb)
+    {
+        sb.AppendLine($"Input backend: {_input.BackendName}");
+        sb.AppendLine($"Run upgrades: {_progress}   unlocked: {_progress.Unlocked}");
+        sb.AppendLine($"Charges: {_charges.Full}/{_charges.Max}  progress {_charges.Progress:0.00}  recharge {_charges.RechargeSeconds:0.00}s");
+        sb.AppendLine($"Dash: distance {DashTuning.Distance(_stats, _progress):0.00}  duration {DashTuning.Duration(_stats):0.000}s  i-frames {DashTuning.InvulnerableSeconds(_stats):0.000}s");
+        sb.AppendLine($"Dashes this session: yours {_localDashes}, other players' detected {_remoteDashes}");
+        sb.AppendLine($"Card bridge: {CardBridge.Status}");
+        sb.AppendLine("Card catalogue:");
+        foreach (var c in _cards)
+            sb.AppendLine($"  {c.Title,-16} {c.Rarity,-10} max {c.MaxStacks}  taken {_progress.Stacks(c.Id)}  offerable now: {DashCards.IsAvailable(c, _progress)}");
+        sb.AppendLine($"Dash sound: {Sound.Status}");
+    }
+
+    // =========================================================================== types
+
+    private sealed class ActiveDash
+    {
+        public Vector3 Dir;
+        public float Remaining;
+        public float Speed;
+        public float Elapsed;
+        public float MaxTime;
+        public float NextGhost;
+        public float Travelled;
+        public float NextFlameAt;
+        public float FlameSpacing;
+    }
+
+    private sealed class RemoteEmitter
+    {
+        public RemoteEmitter(PlayerInfo player, float until)
+        {
+            Player = player;
+            Until = until;
+        }
+
+        public PlayerInfo Player { get; }
+        public float Until { get; }
+        public float Next { get; set; }
+    }
+}

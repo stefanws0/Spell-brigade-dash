@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    COMPILE-CHECK STUB ONLY. Mirrors (by hand, approximately) the API surface of the interop assemblies
+    BepInEx generates for a Unity IL2CPP game, limited to what SpellBrigadeDash uses. All Unity modules,
+    UnityEngine.UI and Unity.InputSystem are folded into this one assembly. Never shipped.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>UnityEngine.CoreModule</AssemblyName>
+    <AssemblyVersion>0.0.0.0</AssemblyVersion>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>$(NoWarn);CS0660;CS0661;CS8618;CS0108</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(BepInExCore)\Il2CppInterop.Runtime.dll" Private="false" />
+    <Reference Include="$(BepInExCore)\Il2CppInterop.Common.dll" Private="false" />
+    <ProjectReference Include="..\Il2Cppmscorlib\Il2Cppmscorlib.csproj" />
+  </ItemGroup>
+</Project>

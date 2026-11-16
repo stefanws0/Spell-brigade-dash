@@ -1,0 +1,15 @@
+# build output
+bin/
+obj/
+dist/
+*.user
+!GamePaths.props.user.example
+.vs/
+.idea/
+*.swp
+
+# compile-check cache (downloaded BepInEx DLLs, built stubs)
+tools/compile-check/.cache/
+
+# never commit the game's generated interop assemblies
+interop/
