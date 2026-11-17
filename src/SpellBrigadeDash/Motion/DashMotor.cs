@@ -1,8 +1,8 @@
+namespace SpellBrigadeDash.Motion;
+
 using System;
 using SpellBrigadeDash.Game;
 using UnityEngine;
-
-namespace SpellBrigadeDash.Motion;
 
 /// <summary>
 /// Moves a wizard along the dash path while respecting walls. It works with whatever the game uses

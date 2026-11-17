@@ -1,10 +1,10 @@
+namespace SpellBrigadeDash.Game;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Il2CppInterop.Runtime;
 using UnityEngine;
-
-namespace SpellBrigadeDash.Game;
 
 internal enum MoveMode
 {

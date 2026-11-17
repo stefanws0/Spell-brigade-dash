@@ -1,8 +1,8 @@
+namespace SpellBrigadeDash.Core;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
-
-namespace SpellBrigadeDash.Core;
 
 /// <summary>One level-up card that this mod adds to the game's upgrade pool.</summary>
 public sealed class DashCardDef

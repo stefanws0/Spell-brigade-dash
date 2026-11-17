@@ -1,3 +1,5 @@
+namespace SpellBrigadeDash.Discovery;
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,8 +14,6 @@ using SpellBrigadeDash.Game;
 using SpellBrigadeDash.Motion;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-
-namespace SpellBrigadeDash.Discovery;
 
 /// <summary>
 /// Writes BepInEx/SpellBrigadeDash-discovery.txt: what the mod found in the game (player classes,

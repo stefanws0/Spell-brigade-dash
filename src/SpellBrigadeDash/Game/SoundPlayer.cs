@@ -1,10 +1,10 @@
+namespace SpellBrigadeDash.Game;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Audio;
-
-namespace SpellBrigadeDash.Game;
 
 /// <summary>
 /// Reuses one of the game's own sounds for the dash. It searches the AudioClips the game has loaded

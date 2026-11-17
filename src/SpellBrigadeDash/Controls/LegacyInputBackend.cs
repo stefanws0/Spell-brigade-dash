@@ -1,8 +1,8 @@
+namespace SpellBrigadeDash.Controls;
+
 using System;
 using UnityEngine;
 using LegacyInput = UnityEngine.Input;
-
-namespace SpellBrigadeDash.Controls;
 
 /// <summary>Fallback for games that use the old UnityEngine.Input manager.</summary>
 internal sealed class LegacyInputBackend : IInputBackend

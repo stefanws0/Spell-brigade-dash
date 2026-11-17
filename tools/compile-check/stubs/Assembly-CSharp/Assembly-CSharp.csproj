@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    COMPILE-CHECK STUB ONLY. Stands in for the game's Assembly-CSharp interop. Games often declare classes in the
+    GLOBAL namespace (the real one has e.g. a global `PlayerInfo`), and global types shadow anything the mod imports
+    with file-level `using` directives. GlobalClashes.cs declares global types with the same names as the mod's
+    own types and the Unity types it uses, so any such clash fails here first.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>Assembly-CSharp</AssemblyName>
+    <Nullable>disable</Nullable>
+    <NoWarn>$(NoWarn);CS8981</NoWarn>
+  </PropertyGroup>
+</Project>

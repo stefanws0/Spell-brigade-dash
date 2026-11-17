@@ -1,7 +1,7 @@
+namespace SpellBrigadeDash.Core;
+
 using System;
 using System.Collections.Generic;
-
-namespace SpellBrigadeDash.Core;
 
 public enum DashCardId
 {

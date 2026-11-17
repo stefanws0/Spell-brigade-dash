@@ -1,8 +1,8 @@
+namespace SpellBrigadeDash;
+
 using System;
 using System.Collections.Generic;
 using BepInEx.Logging;
-
-namespace SpellBrigadeDash;
 
 /// <summary>Thin wrapper around the BepInEx logger with "log this only once" helpers.</summary>
 internal static class ModLog

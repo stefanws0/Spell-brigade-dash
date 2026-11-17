@@ -1,6 +1,6 @@
-using System;
-
 namespace SpellBrigadeDash.Core;
+
+using System;
 
 /// <summary>Base dash stats from the config file (before cards are applied).</summary>
 public sealed class DashBaseStats

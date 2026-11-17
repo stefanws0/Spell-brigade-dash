@@ -1,8 +1,8 @@
+namespace SpellBrigadeDash;
+
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
-
-namespace SpellBrigadeDash;
 
 /// <summary>
 /// BepInEx entry point. Loaded once when the game starts. It only wires things up;

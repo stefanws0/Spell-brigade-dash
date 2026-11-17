@@ -1,7 +1,7 @@
+namespace SpellBrigadeDash.Core;
+
 using System.Collections.Generic;
 using System.Numerics;
-
-namespace SpellBrigadeDash.Core;
 
 /// <summary>
 /// Spots other players' dashes from their synced positions alone, so no network message is needed.

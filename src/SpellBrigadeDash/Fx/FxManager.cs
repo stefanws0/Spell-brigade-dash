@@ -1,11 +1,11 @@
+namespace SpellBrigadeDash.Fx;
+
 using System;
 using System.Collections.Generic;
 using SpellBrigadeDash.Game;
 using UnityEngine;
 using Object = UnityEngine.Object;
 using Random = System.Random;
-
-namespace SpellBrigadeDash.Fx;
 
 /// <summary>
 /// Spawns and animates every world-space effect: afterimages, dust puffs and the Blazing Dash trail.

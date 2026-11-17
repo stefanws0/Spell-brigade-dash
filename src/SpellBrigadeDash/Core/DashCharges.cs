@@ -1,6 +1,6 @@
-using System;
-
 namespace SpellBrigadeDash.Core;
+
+using System;
 
 /// <summary>
 /// Charge-based dash energy. The bar is split into <see cref="Max"/> segments. A dash spends one

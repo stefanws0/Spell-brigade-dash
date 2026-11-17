@@ -1,7 +1,7 @@
+namespace SpellBrigadeDash;
+
 using BepInEx.Configuration;
 using SpellBrigadeDash.Core;
-
-namespace SpellBrigadeDash;
 
 /// <summary>
 /// Every tunable value. BepInEx writes these to BepInEx/config/com.stefanws0.spellbrigadedash.cfg

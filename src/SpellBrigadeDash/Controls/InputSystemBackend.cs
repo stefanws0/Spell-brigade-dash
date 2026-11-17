@@ -1,10 +1,10 @@
+namespace SpellBrigadeDash.Controls;
+
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
-
-namespace SpellBrigadeDash.Controls;
 
 /// <summary>Unity's new Input System. The dash keys are our own InputActions, so rebinding is just a control path in the config.</summary>
 internal sealed class InputSystemBackend : IInputBackend

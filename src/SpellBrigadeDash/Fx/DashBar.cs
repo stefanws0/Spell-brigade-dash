@@ -1,3 +1,5 @@
+namespace SpellBrigadeDash.Fx;
+
 using System;
 using System.Collections.Generic;
 using SpellBrigadeDash.Core;
@@ -5,8 +7,6 @@ using SpellBrigadeDash.Game;
 using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
-
-namespace SpellBrigadeDash.Fx;
 
 /// <summary>
 /// The segmented dash-energy bar under your wizard. It's a screen-space UI canvas whose position

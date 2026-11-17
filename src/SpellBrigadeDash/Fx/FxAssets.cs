@@ -1,8 +1,8 @@
+namespace SpellBrigadeDash.Fx;
+
 using System;
 using System.Globalization;
 using UnityEngine;
-
-namespace SpellBrigadeDash.Fx;
 
 /// <summary>Textures, sprites and shaders generated at runtime, so the mod ships no asset bundles.</summary>
 internal static class FxAssets

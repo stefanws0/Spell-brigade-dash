@@ -1,7 +1,7 @@
+namespace SpellBrigadeDash.Game;
+
 using System.Collections.Generic;
 using SpellBrigadeDash.Core;
-
-namespace SpellBrigadeDash.Game;
 
 /// <summary>
 /// Puts the dash cards (<see cref="DashCards"/>) into the game's level-up choices at their configured

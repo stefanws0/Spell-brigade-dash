@@ -1,8 +1,8 @@
+namespace SpellBrigadeDash.Controls;
+
 using System;
 using System.Runtime.CompilerServices;
 using UnityEngine;
-
-namespace SpellBrigadeDash.Controls;
 
 /// <summary>Debug actions. Default keys: hold Left Ctrl and press 1-6 (rebindable under [Debug] in the config).</summary>
 internal enum DebugKey

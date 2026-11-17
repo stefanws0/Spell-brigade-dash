@@ -1,3 +1,5 @@
+namespace SpellBrigadeDash.Discovery;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -5,8 +7,6 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using HarmonyLib;
 using SpellBrigadeDash.Game;
-
-namespace SpellBrigadeDash.Discovery;
 
 /// <summary>
 /// Discovery helper. It attaches logging-only Harmony postfixes to game methods that look like part

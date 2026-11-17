@@ -89,6 +89,8 @@ in r2modman/Gale (*Settings → Import local mod*) or upload to Thunderstore.
 
 - `CS0656 Missing compiler required member 'System.Runtime.CompilerServices.NullableAttribute..ctor'`: fixed in
   `CompilerAttributes.cs`. Make sure you have the latest source.
+- `cannot convert from 'SpellBrigadeDash.Game.PlayerInfo' to 'PlayerInfo'` (or similar clashes with game class
+  names): fixed by keeping `using` directives inside namespaces. Make sure you have the latest source.
 - `BepInEx not found` / `No interop assemblies`: check the `Using BepInEx at:` line, and start the game once with
   BepInEx so `interop/` gets generated.
 

@@ -1,3 +1,5 @@
+namespace SpellBrigadeDash.Game;
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,8 +9,6 @@ using System.Runtime.InteropServices;
 using BepInEx;
 using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.InteropTypes;
-
-namespace SpellBrigadeDash.Game;
 
 /// <summary>
 /// Helpers to identify native IL2CPP objects by class name, and to map those names back to the

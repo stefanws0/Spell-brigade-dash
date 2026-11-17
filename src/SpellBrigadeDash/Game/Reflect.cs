@@ -1,11 +1,11 @@
+namespace SpellBrigadeDash.Game;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Il2CppInterop.Runtime.InteropTypes;
 using UnityEngine;
-
-namespace SpellBrigadeDash.Game;
 
 /// <summary>A component on a GameObject, with its native class name and (if found) an interop-typed wrapper.</summary>
 internal sealed class ComponentView

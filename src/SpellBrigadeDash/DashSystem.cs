@@ -1,3 +1,5 @@
+namespace SpellBrigadeDash;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,8 +11,6 @@ using SpellBrigadeDash.Fx;
 using SpellBrigadeDash.Game;
 using SpellBrigadeDash.Motion;
 using UnityEngine;
-
-namespace SpellBrigadeDash;
 
 /// <summary>
 /// The mod's main loop, called by <see cref="DashRunner"/> every frame.

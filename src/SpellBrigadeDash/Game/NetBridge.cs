@@ -1,8 +1,8 @@
+namespace SpellBrigadeDash.Game;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
-
-namespace SpellBrigadeDash.Game;
 
 /// <summary>
 /// Explicit "I dashed" message over the game's own networking, so the host knows exactly when a

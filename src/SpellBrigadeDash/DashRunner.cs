@@ -1,7 +1,7 @@
+namespace SpellBrigadeDash;
+
 using System;
 using UnityEngine;
-
-namespace SpellBrigadeDash;
 
 /// <summary>
 /// The only MonoBehaviour this mod injects into the IL2CPP runtime. It just forwards Unity's frame

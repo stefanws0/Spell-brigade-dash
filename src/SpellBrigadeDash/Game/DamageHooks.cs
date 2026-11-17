@@ -1,3 +1,5 @@
+namespace SpellBrigadeDash.Game;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -5,8 +7,6 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using HarmonyLib;
 using UnityEngine;
-
-namespace SpellBrigadeDash.Game;
 
 /// <summary>
 /// I-frames: Harmony prefixes on the game's "take damage" methods. A prefix that returns false skips
