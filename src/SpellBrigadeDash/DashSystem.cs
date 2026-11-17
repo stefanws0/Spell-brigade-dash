@@ -96,6 +96,7 @@ internal sealed class DashSystem
 
             UpdateRemotes(now);
             Invulnerability.Prune();
+            CardBridge.Update(_cards, _progress, Time.unscaledTime);
 
             if (_discoveryAt > 0f && Time.unscaledTime >= _discoveryAt)
             {
@@ -154,6 +155,7 @@ internal sealed class DashSystem
         _sparkleEnd = FxAssets.ParseColor(ModConfig.SparkleFadeColor.Value, new Color(0.61f, 0.36f, 1f, 1f));
         _streakColor = FxAssets.ParseColor(ModConfig.StreakColor.Value, new Color(0.82f, 0.66f, 1f, 0.75f));
         Locator.LocalChanged += OnNewLocalPlayer;
+        CardBridge.Picked = ApplyCard;
         // Nothing risky here: Harmony patches wait until a run has started (see InstallHooks).
         ModLog.Step("Init: done");
     }
@@ -180,6 +182,7 @@ internal sealed class DashSystem
         ModLog.Step("hooks: start");
         DamageHooks.HookConfigured();
         DamageHooks.HookFor(p);
+        CardBridge.InstallPickHook();
         MethodTracer.Install();
         ModLog.Step("hooks: done");
     }
@@ -510,6 +513,7 @@ internal sealed class DashSystem
         sb.AppendLine($"Dash: distance {DashTuning.Distance(_stats, _progress):0.00}  duration {DashTuning.Duration(_stats):0.000}s  i-frames {DashTuning.InvulnerableSeconds(_stats):0.000}s");
         sb.AppendLine($"Dashes this session: yours {_localDashes}, other players' detected {_remoteDashes}");
         sb.AppendLine($"Card bridge: {CardBridge.Status}");
+        foreach (var line in CardBridge.Log) sb.AppendLine("  " + line.Replace("\n", "\n  "));
         sb.AppendLine("Card catalogue:");
         foreach (var c in _cards)
             sb.AppendLine($"  {c.Title,-16} {c.Rarity,-10} max {c.MaxStacks}  taken {_progress.Stacks(c.Id)}  offerable now: {DashCards.IsAvailable(c, _progress)}");

@@ -24,7 +24,10 @@ mkdir -p "$BEP/interop"
 dotnet build "$HERE/stubs/UnityEngine.CoreModule/UnityEngine.CoreModule.csproj" -c Release \
   -p:BepInExCore="$BEP/core" -o "$CACHE/stubs-out" -nologo -v q
 dotnet build "$HERE/stubs/Assembly-CSharp/Assembly-CSharp.csproj" -c Release -o "$CACHE/stubs-out" -nologo -v q
-cp "$CACHE/stubs-out/UnityEngine.CoreModule.dll" "$CACHE/stubs-out/Il2Cppmscorlib.dll" "$CACHE/stubs-out/Assembly-CSharp.dll" "$BEP/interop/"
+dotnet build "$HERE/stubs/Runtime/Runtime.csproj" -c Release \
+  -p:BepInExCore="$BEP/core" -o "$CACHE/stubs-out" -nologo -v q
+cp "$CACHE/stubs-out/UnityEngine.CoreModule.dll" "$CACHE/stubs-out/Il2Cppmscorlib.dll" "$CACHE/stubs-out/Assembly-CSharp.dll" \
+  "$CACHE/stubs-out/Runtime.dll" "$BEP/interop/"
 
 # Output goes to .cache/mod-out: a DLL built against stubs does NOT run in the real game.
 dotnet build "$ROOT/src/SpellBrigadeDash/SpellBrigadeDash.csproj" -c Release -p:BepInExDir="$BEP" \

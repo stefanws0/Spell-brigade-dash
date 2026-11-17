@@ -89,6 +89,8 @@ internal static class ModConfig
     public static ConfigEntry<float> BlazingDashDamage = null!;
     public static ConfigEntry<float> BlazingTrailSeconds = null!;
     public static ConfigEntry<string> EtherealStepRarity = null!;
+    public static ConfigEntry<bool> ShopCards = null!;
+    public static ConfigEntry<string> ShopCardStat = null!;
 
     // ---- Multiplayer ----
     public static ConfigEntry<bool> RemoteIFrames = null!;
@@ -112,6 +114,7 @@ internal static class ModConfig
 
     // ---- Debug ----
     public static ConfigEntry<bool> StartRunWithDash = null!;
+    public static ConfigEntry<bool> ShopCardTestMode = null!;
     public static ConfigEntry<bool> DebugHotkeys = null!;
     public static ConfigEntry<string> HotkeyModifier = null!;
     public static ConfigEntry<string> KeyReport = null!;
@@ -235,6 +238,11 @@ internal static class ModConfig
         BlazingDashDamage = cfg.Bind(up, "BlazingDashDamage", 15f, "Damage per tick of the Blazing Dash trail (applied once the game's damage hook is wired).");
         BlazingTrailSeconds = cfg.Bind(up, "BlazingTrailSeconds", 1.5f, "How long the Blazing Dash trail stays on the ground.");
         EtherealStepRarity = cfg.Bind(up, "EtherealStepRarity", "Legendary", "Rarity of 'Ethereal Step' (dashes stop costing HP).");
+        ShopCards = cfg.Bind(up, "ShopCards", true,
+            "Offer the dash cards in the game's own level-up shop (as character cards at the rarities above).");
+        ShopCardStat = cfg.Bind(up, "ShopCardStat", "HealOnDodge",
+            "Advanced: the game stat the dash cards carry (with value 0, so picking one changes nothing in the game's stats). " +
+            "Must be a stat that starts at 0 and has no character card of its own.");
 
         const string mp = "Multiplayer";
         RemoteIFrames = cfg.Bind(mp, "RemoteIFrames", false,
@@ -277,6 +285,9 @@ internal static class ModConfig
             "Seconds after your wizard appears before the i-frame damage hooks are installed.");
         StartRunWithDash = cfg.Bind(dbg, "StartRunWithDash", true,
             "Give the dash at the start of every run instead of waiting for the level-up card. ON by default until the card hook is wired.");
+        ShopCardTestMode = cfg.Bind(dbg, "ShopCardTestMode", true,
+            "Test aid: the dash cards are Common and much more likely in the level-up shop, so they show up at the first level-up. " +
+            "ON for the shop test build only.");
         DebugHotkeys = cfg.Bind(dbg, "Hotkeys", true,
             "Debug hotkeys (hold the modifier, then press the key). Defaults: Left Ctrl + 1 = discovery report, + 2 = toggle dash, " +
             "+ 3 = +1 Charge, + 4 = Quick Recovery, + 5 = Long Stride, + 6 = Blazing Dash, + 7 = Ethereal Step.");

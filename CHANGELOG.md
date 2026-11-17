@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.0 (shop test build, verified in game 17 Nov)
+
+- **The dash cards are in the game's own level-up shop.** They're added as character cards to the game's item list
+  (`StoreItemDatabase.characterImprovementItems`), only while they're available (the Dash card while the dash is
+  locked, the upgrades after it), with their titles and descriptions added to the game's string table. Picking one
+  is seen by a single postfix on `StoreManager.ChooseShopItem` and applies the card. The cards carry the stat
+  `HealOnDodge` with value 0, so the game's own stat change does nothing (`Upgrades.ShopCards`, `Upgrades.ShopCardStat`).
+- **Test mode (on in this build):** `Debug.ShopCardTestMode` makes the dash cards Common and much more likely, so they
+  show up at the first level-up.
+- Fixed after the first shop test: picking any card while a dash card was in the shop threw inside the game's
+  `ChooseShopItem` (its analytics parse every card's stat as `ImprovementStat`, which has no `HealOnDodge`), so the
+  pick never reached the mod. While a shop is open the dash cards now carry `Dodge` + 0 (a no-op), the pick hook is a
+  prefix that applies the card before the game's own code, and it's installed as soon as the shop exists (the first
+  shop opens ~1.5 s into a run, before the other hooks).
+- Every new Harmony patch now goes through a stricter guard (`NativeCode.CanPatch`, from the 17 Nov PC session): no
+  abstract/interface methods, no leaf or tiny functions, no code shared with another method.
+- The log and the discovery report list the game's own character cards and every shop that opens.
+- Known limitation: the game treats all dash cards as one card (they share the carrier stat), so a shop shows at most
+  one dash card, and banning one bans them all for the run.
+
 ## 0.3.2
 
 - **Blazing Dash burns with the game's own fire.** The trail is now made of the fire the game shows on a burning wizard

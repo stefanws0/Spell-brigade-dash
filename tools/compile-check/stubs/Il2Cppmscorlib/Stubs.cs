@@ -23,3 +23,16 @@ namespace Il2CppSystem
         public ValueType(IntPtr pointer) : base(pointer) { }
     }
 }
+
+namespace Il2CppSystem.Collections.Generic
+{
+    public class List<T> : Il2CppSystem.Object
+    {
+        public List(IntPtr pointer) : base(pointer) { }
+        public int Count => 0;
+        public T this[int index] { get => default; set { } }
+        public void Add(T item) { }
+        public bool Remove(T item) => false;
+        public bool Contains(T item) => false;
+    }
+}
