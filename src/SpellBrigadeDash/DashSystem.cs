@@ -39,6 +39,8 @@ internal sealed class DashSystem
     private ActiveDash? _active;
     private float _bufferedUntil = -1f;
     private float _discoveryAt = -1f;
+    private float _hooksAt = -1f;
+    private bool _hooksInstalled;
     private int _remoteDashes;
     private int _localDashes;
 
@@ -58,13 +60,16 @@ internal sealed class DashSystem
             if (!_initialized) Init();
             Invulnerability.Now = now;
 
+            ModLog.StepOnce("poll", "first frame: reading input");
             _input.Poll();
             if (ModConfig.DebugHotkeys.Value) HandleHotkeys();
 
+            ModLog.StepOnce("locate", "first frame: looking for the wizard");
             Locator.Update(Time.unscaledTime);
             var p = Locator.Local;
             if (p != null && p.IsDestroyed) p = null;
             if (p != null) TrackMovement(p, dt);
+            if (p != null && !_hooksInstalled && _hooksAt > 0f && Time.unscaledTime >= _hooksAt) InstallHooks(p);
 
             SyncCharges();
             var refilled = _charges.Tick(dt);
@@ -86,7 +91,9 @@ internal sealed class DashSystem
             if (_discoveryAt > 0f && Time.unscaledTime >= _discoveryAt)
             {
                 _discoveryAt = -1f;
+                ModLog.Step("discovery report: writing");
                 DiscoveryReport.Write(this, "run started");
+                ModLog.Step("discovery report: done");
             }
         }
         catch (Exception ex)
@@ -110,9 +117,11 @@ internal sealed class DashSystem
                 else StepDash(p, now, dt);
             }
 
+            ModLog.StepOnce("fx", "first frame: effects + bar");
             _fx.Update(dt);
             var allowed = p != null && Time.timeScale > 0f && !Locator.IsDead(p);
             _bar.Update(p, _charges, allowed, now, Time.unscaledDeltaTime);
+            ModLog.StepOnce("frame-ok", "first frame completed");
         }
         catch (Exception ex)
         {
@@ -124,16 +133,35 @@ internal sealed class DashSystem
 
     private void Init()
     {
+        ModLog.Step("Init: start");
         _initialized = true;
         _stats = ModConfig.BaseStats();
         _cards = DashCards.Build(ModConfig.CardSettings());
         _ghostTint = FxAssets.ParseColor(ModConfig.AfterimageColor.Value, new Color(0.56f, 0.85f, 1f, 0.6f));
         _dustColor = FxAssets.ParseColor(ModConfig.DustColor.Value, new Color(0.9f, 0.86f, 0.78f, 0.8f));
         Locator.LocalChanged += OnNewLocalPlayer;
+        // Nothing risky here: Harmony patches wait until a run has started (see InstallHooks).
+        ModLog.Step("Init: done");
+    }
 
-        Il2CppNames.LoadInteropAssemblies();
+    /// <summary>
+    /// Harmony patches (i-frame damage hooks, optional level-up tracing). They run a few seconds into a run instead
+    /// of at game start, and every patch leaves a breadcrumb in SpellBrigadeDash.log first.
+    /// </summary>
+    private void InstallHooks(PlayerInfo p)
+    {
+        _hooksInstalled = true;
+        if (ModConfig.SafeMode.Value)
+        {
+            ModLog.Info("SafeMode: skipping i-frame hooks and tracing.");
+            return;
+        }
+
+        ModLog.Step("hooks: start");
         DamageHooks.HookConfigured();
+        DamageHooks.HookFor(p);
         MethodTracer.Install();
+        ModLog.Step("hooks: done");
     }
 
     /// <summary>A new local wizard object means a new run: reset the run's cards and charges.</summary>
@@ -152,9 +180,10 @@ internal sealed class DashSystem
         ModLog.Info($"New run detected. Dash {(_progress.Unlocked ? "unlocked (Debug.StartRunWithDash)" : "locked until the Dash card is picked")}.");
 
         DamageHooks.SetLocal(p);
-        DamageHooks.HookFor(p);
+        if (!_hooksInstalled) _hooksAt = Time.unscaledTime + Math.Max(0f, ModConfig.HookDelaySeconds.Value);
+        else if (!ModConfig.SafeMode.Value) DamageHooks.HookFor(p);
 
-        if (ModConfig.DiscoveryEnabled.Value) _discoveryAt = Time.unscaledTime + 5f;
+        if (ModConfig.DiscoveryEnabled.Value) _discoveryAt = Time.unscaledTime + Math.Max(0f, ModConfig.HookDelaySeconds.Value) + 3f;
     }
 
     private void SyncCharges()
@@ -196,6 +225,7 @@ internal sealed class DashSystem
 
     private void StartDash(PlayerInfo p, float now)
     {
+        ModLog.StepOnce("first-dash", "first dash");
         var dir = ResolveDirection(p);
         var distance = DashTuning.Distance(_stats, _progress);
         var duration = DashTuning.Duration(_stats);
@@ -342,7 +372,7 @@ internal sealed class DashSystem
         foreach (var r in Locator.Remotes)
         {
             if (r.IsDestroyed) continue;
-            if (_hookedRemotes.Add(r.Id)) DamageHooks.HookFor(r);
+            if (_hooksInstalled && _hookedRemotes.Add(r.Id)) DamageHooks.HookFor(r);
 
             var f = r.RootT.position;
             if (!_remote.Observe(r.Id, new System.Numerics.Vector3(f.x, f.y, f.z), now)) continue;
@@ -373,7 +403,12 @@ internal sealed class DashSystem
 
     private void HandleHotkeys()
     {
-        if (_input.DebugPressed(DebugKey.Report)) DiscoveryReport.Write(this, "hotkey");
+        if (_input.DebugPressed(DebugKey.Report))
+        {
+            ModLog.Step("discovery report (hotkey): writing");
+            DiscoveryReport.Write(this, "hotkey");
+            ModLog.Step("discovery report (hotkey): done");
+        }
         if (_input.DebugPressed(DebugKey.ToggleDash))
         {
             if (_progress.Unlocked) _progress.Lock();

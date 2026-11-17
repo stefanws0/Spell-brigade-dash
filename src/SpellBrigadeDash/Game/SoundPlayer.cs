@@ -74,6 +74,7 @@ internal sealed class SoundPlayer
 
     private void Search()
     {
+        ModLog.Step("sound: searching AudioClips");
         var clips = Resources.FindObjectsOfTypeAll<AudioClip>().Where(c => c != null).ToList();
         if (clips.Count == 0)
         {

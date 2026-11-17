@@ -45,6 +45,7 @@ internal sealed class DashInput
         if (!_triedInit)
         {
             _triedInit = true;
+            ModLog.Step("input: creating backend");
             _backend = TryInputSystem() ?? TryLegacy();
             ModLog.Info($"Input backend: {BackendName}");
         }

@@ -10,4 +10,7 @@
 - Co-op: other players' dashes are detected from their movement, so they get i-frames and afterimages.
 - Card system (Dash, +1 Charge, Quick Recovery, Long Stride, Blazing Dash) with configurable rarities and stack
   limits. It is applied with the debug hotkeys (Left Ctrl + 2..6, rebindable) until the level-up hook is wired.
-- Discovery report (`BepInEx/SpellBrigadeDash-discovery.txt`, Left Ctrl + 1) and a level-up method trace.
+- Discovery report (`BepInEx/SpellBrigadeDash-discovery.txt`, Left Ctrl + 1) and an opt-in level-up method trace
+  (`Discovery.TraceLevelUpMethods`, experimental).
+- Crash safety: a line-flushed `BepInEx/SpellBrigadeDash.log` with step breadcrumbs, Harmony patches installed a few
+  seconds into a run instead of at game start, and `Debug.SafeMode` to switch off all patches.

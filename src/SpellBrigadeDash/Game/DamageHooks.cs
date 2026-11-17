@@ -41,6 +41,7 @@ internal static class DamageHooks
     /// <summary>Hook the damage methods relevant for this wizard (idempotent).</summary>
     public static void HookFor(PlayerInfo p)
     {
+        if (ModConfig.SafeMode.Value) return;
         if (ModConfig.AutoDamageHooks.Value)
         {
             var types = new HashSet<Type>();
@@ -79,6 +80,7 @@ internal static class DamageHooks
 
     public static void HookConfigured()
     {
+        if (ModConfig.SafeMode.Value) return;
         foreach (var entry in ModConfig.SplitList(ModConfig.DamageMethods.Value, ';'))
         {
             var parts = entry.Split(':');
@@ -127,7 +129,9 @@ internal static class DamageHooks
 
         try
         {
+            ModLog.Step($"damage hook patch: {label}");
             Plugin.Harmony.Patch(m, prefix: new HarmonyMethod(typeof(DamageHooks).GetMethod(prefix, BindingFlags.Static | BindingFlags.NonPublic)));
+            ModLog.Step("damage hook patch ok");
             PatchedNames.Add(label);
             ModLog.Info($"I-frame hook installed on {label}");
         }

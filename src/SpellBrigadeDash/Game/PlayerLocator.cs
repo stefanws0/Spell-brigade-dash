@@ -244,6 +244,7 @@ internal sealed class PlayerLocator
         }
 
         // 3) scan every MonoBehaviour and score its class name
+        ModLog.StepOnce("scan", "player: first scan of all MonoBehaviours");
         LastCandidates.Clear();
         var bestPerClass = new Dictionary<string, (int score, List<GameObject> gos)>();
         foreach (var c in UnityFind.All(typeof(MonoBehaviour)))
@@ -326,6 +327,7 @@ internal sealed class PlayerLocator
 
     private static PlayerInfo Build(GameObject anchor, string className)
     {
+        ModLog.Step($"player: reading '{anchor.name}' ({className})");
         var info = new PlayerInfo { Anchor = anchor, ComponentName = className };
 
         // Movement root: nearest object (self or parents) with a physics body; else self.

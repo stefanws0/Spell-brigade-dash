@@ -20,12 +20,16 @@ public class Plugin : BasePlugin
     public override void Load()
     {
         ModLog.Init(Log);
+        ModLog.Step("Load: config");
         ModConfig.Init(Config);
         Harmony = new Harmony(Guid);
 
         // BasePlugin.AddComponent registers our MonoBehaviour with the IL2CPP runtime and attaches it
         // to BepInEx's persistent (DontDestroyOnLoad) manager object, so it survives scene changes.
+        ModLog.Step("Load: registering DashRunner");
         AddComponent<DashRunner>();
+        ModLog.Step("Load: done");
+        if (ModConfig.SafeMode.Value) ModLog.Warn("Debug.SafeMode is ON: no Harmony patches (no i-frames, no tracing).");
 
         ModLog.Info($"{Name} {Version} loaded. Discovery report: {(ModConfig.DiscoveryEnabled.Value ? "ON" : "off")}, " +
                     $"debug hotkeys: {(ModConfig.DebugHotkeys.Value ? $"ON (hold {ModConfig.PrettyKey(ModConfig.HotkeyModifier.Value)})" : "off")}.");

@@ -40,7 +40,7 @@ internal static class MethodTracer
 
     public static void Install()
     {
-        if (_installed || !ModConfig.DiscoveryEnabled.Value || !ModConfig.TraceUpgradeMethods.Value) return;
+        if (_installed || ModConfig.SafeMode.Value || !ModConfig.TraceLevelUpMethods.Value) return;
         _installed = true;
 
         var candidates = new List<MethodInfo>();
@@ -80,7 +80,9 @@ internal static class MethodTracer
             var label = Label(m);
             try
             {
+                ModLog.Step($"trace patch: {label}");
                 Plugin.Harmony.Patch(m, postfix: postfix);
+                ModLog.Step("trace patch ok");
                 Traced.Add(label);
             }
             catch (Exception ex)

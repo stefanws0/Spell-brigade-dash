@@ -84,8 +84,10 @@ internal static class ModConfig
 
     // ---- Discovery ----
     public static ConfigEntry<bool> DiscoveryEnabled = null!;
-    public static ConfigEntry<bool> TraceUpgradeMethods = null!;
+    public static ConfigEntry<bool> TraceLevelUpMethods = null!;
     public static ConfigEntry<int> TraceMaxMethods = null!;
+    public static ConfigEntry<bool> SafeMode = null!;
+    public static ConfigEntry<float> HookDelaySeconds = null!;
 
     // ---- Debug ----
     public static ConfigEntry<bool> StartRunWithDash = null!;
@@ -199,11 +201,17 @@ internal static class ModConfig
         const string disc = "Discovery";
         DiscoveryEnabled = cfg.Bind(disc, "Enabled", true,
             "Write BepInEx/SpellBrigadeDash-discovery.txt (game classes, damage methods, upgrade types...) when a run starts and when you press the report hotkey (Left Ctrl + 1 by default). Send this file to the mod author.");
-        TraceUpgradeMethods = cfg.Bind(disc, "TraceUpgradeMethods", true,
-            "Log calls to the game's level-up / upgrade methods so the card hook can be found. Turn off once the cards are wired.");
-        TraceMaxMethods = cfg.Bind(disc, "TraceMaxMethods", 80, "Maximum number of game methods traced.");
+        TraceLevelUpMethods = cfg.Bind(disc, "TraceLevelUpMethods", false,
+            "EXPERIMENTAL, can crash the game: logs calls to the game's level-up / upgrade methods so the card hook can be found. " +
+            "Only turn on when asked to, and only after the mod runs fine without it.");
+        TraceMaxMethods = cfg.Bind(disc, "TraceMaxMethods", 25, "Maximum number of game methods traced.");
 
         const string dbg = "Debug";
+        SafeMode = cfg.Bind(dbg, "SafeMode", false,
+            "If the game crashes with the mod: turn this on. No Harmony patches at all (no i-frames, no tracing), only dash + bar + effects. " +
+            "Tells us whether the crash comes from the patches. BepInEx/SpellBrigadeDash.log names the last step before a crash.");
+        HookDelaySeconds = cfg.Bind(dbg, "HookDelaySeconds", 3f,
+            "Seconds after your wizard appears before the i-frame damage hooks are installed.");
         StartRunWithDash = cfg.Bind(dbg, "StartRunWithDash", true,
             "Give the dash at the start of every run instead of waiting for the level-up card. ON by default until the card hook is wired.");
         DebugHotkeys = cfg.Bind(dbg, "Hotkeys", true,

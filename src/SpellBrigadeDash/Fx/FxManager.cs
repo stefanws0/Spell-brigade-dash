@@ -83,6 +83,7 @@ internal sealed class FxManager
 
     public void SpawnAfterimage(PlayerInfo p, Color tint, float life)
     {
+        ModLog.StepOnce("ghost", $"fx: first afterimage ({(p.Is2D ? "sprites" : "meshes")})");
         if (p.Is2D) SpawnSpriteGhost(p, tint, life);
         else SpawnMeshGhost(p, tint, life);
     }
@@ -186,6 +187,7 @@ internal sealed class FxManager
 
     public void SpawnPuff(PlayerInfo p, Vector3 position, Vector3 dashDir, Color color, float strength)
     {
+        ModLog.StepOnce("puff", "fx: first dust puff");
         var size = p.VisualSize;
         var count = Math.Max(3, (int)(8 * strength));
         var side = p.Is2D ? new Vector3(-dashDir.y, dashDir.x, 0f) : Vector3.Cross(Vector3.up, dashDir).normalized;

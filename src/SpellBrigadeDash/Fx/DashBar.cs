@@ -149,6 +149,7 @@ internal sealed class DashBar
             _flash = FxAssets.ParseColor(ModConfig.BarFlashColor.Value, Color.white);
             _empty = FxAssets.ParseColor(ModConfig.BarEmptyColor.Value, new Color(1f, 0.29f, 0.29f));
 
+            ModLog.Step("bar: building canvas");
             _canvasGo = new GameObject("SpellBrigadeDash_Bar");
             Object.DontDestroyOnLoad(_canvasGo);
             var canvas = _canvasGo.AddComponent<Canvas>();
@@ -165,6 +166,7 @@ internal sealed class DashBar
             _bar.anchorMax = Vector2.zero;
             _bar.pivot = new Vector2(0.5f, 0.5f);
             _frame = AddImage(barGo, _back);
+            ModLog.Step("bar: canvas built");
             return true;
         }
         catch (Exception ex)

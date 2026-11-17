@@ -24,6 +24,7 @@ internal static class DashMotor
     public static float Move(PlayerInfo p, Vector3 dir, float distance)
     {
         if (distance <= 0f) return 0f;
+        ModLog.StepOnce("move", $"motor: first dash move ({p.Mode})");
         var t = p.RootT;
         var before = t.position;
 

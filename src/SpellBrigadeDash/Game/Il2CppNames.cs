@@ -186,6 +186,7 @@ internal static class Il2CppNames
     private static void EnsureIndex()
     {
         if (_byFullName != null) return;
+        ModLog.Step("interop: loading + indexing game types");
         LoadInteropAssemblies();
 
         _byFullName = new Dictionary<string, Type>(StringComparer.Ordinal);
@@ -212,6 +213,6 @@ internal static class Il2CppNames
             }
         }
 
-        ModLog.Debug($"Indexed {_byFullName.Count} interop types.");
+        ModLog.Step($"interop: indexed {_byFullName.Count} types");
     }
 }

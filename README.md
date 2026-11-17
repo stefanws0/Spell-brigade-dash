@@ -20,7 +20,7 @@ game installed, and those weren't available while writing this mod. So this vers
 damage and level-up code at runtime by name** and writes a report:
 
 1. Play a run with the mod installed. A few seconds in, it writes `BepInEx/SpellBrigadeDash-discovery.txt`.
-2. **Level up a few times** (the mod traces the game's level-up methods), dash into some enemies, then press
+2. **Level up a few times**, dash into some enemies, then press
    **Left Ctrl + 1** to refresh the report.
 3. Send the report back. The next version uses it to wire the real level-up cards, the co-op sync message
    and Blazing Dash damage. See "Pending after discovery" in `docs/DESIGN.md`.
@@ -86,6 +86,11 @@ The first builds `src/SpellBrigadeDash/bin/Release/SpellBrigadeDash.dll`. The se
 in r2modman/Gale (*Settings → Import local mod*) or upload to Thunderstore.
 
 **Troubleshooting**
+
+- **The game crashes:** before relaunching (that overwrites the logs), send `BepInEx/SpellBrigadeDash.log`. It's
+  flushed line by line, so its last `STEP` line names what the mod was doing when the game died. Also send
+  `BepInEx/LogOutput.log`. To narrow it down, set `SafeMode = true` under `[Debug]` in the config: that turns off
+  all Harmony patches and leaves only the dash, bar and effects.
 
 - `CS0656 Missing compiler required member 'System.Runtime.CompilerServices.NullableAttribute..ctor'`: fixed in
   `CompilerAttributes.cs`. Make sure you have the latest source.
