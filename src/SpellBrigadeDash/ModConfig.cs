@@ -120,7 +120,7 @@ internal static class ModConfig
 
     // ---- Internal ----
     /// <summary>Bumped when shipped defaults change; older config files get those entries reset (see Migrate).</summary>
-    private const int CurrentConfigVersion = 3;
+    private const int CurrentConfigVersion = 4;
     public static ConfigEntry<int> ConfigVersion = null!;
 
     public static void Init(ConfigFile cfg)
@@ -252,9 +252,9 @@ internal static class ModConfig
         const string disc = "Discovery";
         DiscoveryEnabled = cfg.Bind(disc, "Enabled", true,
             "Write BepInEx/SpellBrigadeDash-discovery.txt (game classes, damage methods, upgrade types...) when a run starts and when you press the report hotkey (Left Ctrl + 1 by default). Send this file to the mod author.");
-        TraceLevelUpMethods = cfg.Bind(disc, "TraceLevelUpMethods", false,
-            "EXPERIMENTAL, can crash the game: logs calls to the game's level-up / upgrade methods so the card hook can be found. " +
-            "Only turn on when asked to, and only after the mod runs fine without it.");
+        TraceLevelUpMethods = cfg.Bind(disc, "TraceLevelUpMethods", true,
+            "Logs calls to the game's level-up shop methods (a few seconds into each run) so the dash cards can be wired into the shop. " +
+            "Small crash risk: if the game crashes, BepInEx/SpellBrigadeDash.log names the method; then set this to false."); 
         TraceMaxMethods = cfg.Bind(disc, "TraceMaxMethods", 40, "Maximum number of game methods traced (level-up shop classes first).");
 
         const string dbg = "Debug";
@@ -302,6 +302,9 @@ internal static class ModConfig
         // v3 (0.3.0): real game hooks from the discovery report.
         if (ConfigVersion.Value < 3)
             reset.AddRange(new ConfigEntryBase[] { PlayerComponent, DeadMembers, RemoteIFrames, RemoteDashSpeedFactor, SoundClipHints, TraceMaxMethods });
+
+        // v4 (0.3.0): shop trace on for the next test (approved), to wire the dash cards into the level-up shop.
+        if (ConfigVersion.Value < 4) reset.Add(TraceLevelUpMethods);
 
         foreach (var entry in reset) entry.BoxedValue = entry.DefaultValue;
 

@@ -17,7 +17,7 @@
 - Co-op: the game applies damage on each player's own PC, so movement-based i-frames for other players are now off by
   default (`Multiplayer.RemoteIFrames`).
 - Discovery report: wall-check self-test, FMOD event list (section 17) and the level-up shop classes (section 18).
-  The opt-in method trace now focuses on the shop.
+  The method trace now focuses on the shop and is **on** for this test (`Discovery.TraceLevelUpMethods`).
 
 ## 0.2.0 (after the first playtest)
 
