@@ -13,7 +13,7 @@ public class Plugin : BasePlugin
 {
     public const string Guid = "com.stefanws0.spellbrigadedash";
     public const string Name = "SpellBrigadeDash";
-    public const string Version = "0.1.0";
+    public const string Version = "0.2.0";
 
     internal static Harmony Harmony { get; private set; } = null!;
 

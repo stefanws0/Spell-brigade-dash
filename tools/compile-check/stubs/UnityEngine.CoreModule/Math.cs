@@ -87,6 +87,22 @@ namespace UnityEngine
     {
         public float x, y, z, w;
         public static Quaternion identity => new() { w = 1 };
+        public static Quaternion Euler(float x, float y, float z) => identity;
+        public static Quaternion LookRotation(Vector3 forward, Vector3 upwards) => identity;
+        public static Quaternion operator *(Quaternion lhs, Quaternion rhs) => lhs;
+    }
+
+    public struct Vector4
+    {
+        public float x, y, z, w;
+
+        public Vector4(float x, float y, float z, float w)
+        {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.w = w;
+        }
     }
 
     public struct Color
@@ -108,7 +124,14 @@ namespace UnityEngine
 
     public struct Rect
     {
-        public Rect(float x, float y, float width, float height) { }
+        public Rect(float x, float y, float width, float height)
+        {
+            this.width = width;
+            this.height = height;
+        }
+
+        public float width { get; set; }
+        public float height { get; set; }
     }
 
     public struct Bounds

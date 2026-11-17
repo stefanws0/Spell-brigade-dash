@@ -12,6 +12,9 @@ public sealed class DashBaseStats
     public float IFrameGraceSeconds { get; set; } = 0.08f;
     public float QuickRecoveryPerStack { get; set; } = 0.25f;
     public float LongStridePerStack { get; set; } = 0.30f;
+
+    /// <summary>Share of max HP one dash costs until Ethereal Step is picked (0.05 = 5%).</summary>
+    public float HealthCostFraction { get; set; } = 0.05f;
 }
 
 /// <summary>Combines base stats with the run's cards. Pure functions.</summary>
@@ -38,4 +41,18 @@ public static class DashTuning
     public static float InvulnerableSeconds(DashBaseStats b) => Duration(b) + Math.Max(0f, b.IFrameGraceSeconds);
 
     public static bool Blazing(DashProgress p) => p.Stacks(DashCardId.BlazingDash) > 0;
+
+    /// <summary>Share of max HP a dash costs right now (0 after Ethereal Step).</summary>
+    public static float HealthCostFraction(DashBaseStats b, DashProgress p)
+        => p.Stacks(DashCardId.EtherealStep) > 0 ? 0f : Math.Max(0f, b.HealthCostFraction);
+
+    /// <summary>
+    /// HP to take for one dash: a share of max HP, but never the last point, so the dash can't kill
+    /// (at 1 HP it costs nothing).
+    /// </summary>
+    public static float HealthCost(float fraction, float currentHp, float maxHp)
+    {
+        if (fraction <= 0f || maxHp <= 0f || currentHp <= 1f) return 0f;
+        return Math.Max(0f, Math.Min(maxHp * fraction, currentHp - 1f));
+    }
 }

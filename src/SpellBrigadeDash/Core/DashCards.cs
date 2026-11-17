@@ -49,6 +49,11 @@ public sealed class DashCardSettings
 
     public string BlazingDashRarity { get; set; } = "Legendary";
     public float BlazingDashDamage { get; set; } = 15f;
+
+    public string EtherealStepRarity { get; set; } = "Legendary";
+
+    /// <summary>Share of max HP one dash costs before Ethereal Step (0.05 = 5%).</summary>
+    public float HealthCostFraction { get; set; } = 0.05f;
 }
 
 public static class DashCards
@@ -58,7 +63,9 @@ public static class DashCards
         return new List<DashCardDef>
         {
             new(DashCardId.Dash, "Dash",
-                "Press Shift (or LB) to dash a short distance. You can't be hit while dashing.",
+                s.HealthCostFraction > 0f
+                    ? $"Press Space (or LB) to dash a short distance. You can't be hit while dashing, but each dash costs {Percent(s.HealthCostFraction)} of your max HP."
+                    : "Press Space (or LB) to dash a short distance. You can't be hit while dashing.",
                 s.UnlockRarity, 1, s.UnlockWeight),
             new(DashCardId.ExtraCharge, "+1 Dash Charge",
                 "Your dash bar gains another segment.",
@@ -72,6 +79,9 @@ public static class DashCards
             new(DashCardId.BlazingDash, "Blazing Dash",
                 "Your dash leaves a trail of fire that burns enemies.",
                 s.BlazingDashRarity, 1, 1f),
+            new(DashCardId.EtherealStep, "Ethereal Step",
+                "Your dash no longer costs health.",
+                s.EtherealStepRarity, s.HealthCostFraction > 0f ? 1 : 0, 1f),
         };
     }
 

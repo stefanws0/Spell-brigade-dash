@@ -1,6 +1,6 @@
 # Spell Brigade Dash
 
-A BepInEx mod for **The Spell Brigade**. It adds a short, animated **dash on Left Shift / LB** with a
+A BepInEx mod for **The Spell Brigade**. It adds a short, animated **dash on Space / LB** with a
 **segmented energy bar** under your wizard. The dash is unlocked and upgraded through rare level-up cards.
 
 All design decisions are in [`docs/DESIGN.md`](docs/DESIGN.md).
@@ -8,12 +8,13 @@ All design decisions are in [`docs/DESIGN.md`](docs/DESIGN.md).
 | | |
 |---|---|
 | Dash | ~3 units in 0.12 s in your movement direction, i-frames during the dash, stops at walls |
-| Energy | 2 charges, each refills separately (~2 s). The bar fades out when full, flashes on refill and shakes on an empty press |
-| Effects | Afterimage trail, dust puff, a whoosh reused from the game's own sounds |
-| Cards | **Dash** (Epic, unlock) · **+1 Charge** (Legendary) · **Quick Recovery** (Epic) · **Long Stride** (Epic) · **Blazing Dash** (Legendary) |
+| Energy | 1 charge that refills in 12 s (more with cards). Rounded violet bar: fades out when full, flashes on refill, shakes on an empty press |
+| Cost | Each dash costs 5% of max HP (never your last point) until the Legendary **Ethereal Step** card |
+| Effects | Violet glowing afterimages, arcane sparkles, speed streaks, dust burst, a whoosh reused from the game's own sounds; Blazing Dash leaves flickering flames with embers |
+| Cards | **Dash** (Epic, unlock) · **+1 Charge** (Legendary) · **Quick Recovery** (Epic) · **Long Stride** (Epic) · **Blazing Dash** (Legendary) · **Ethereal Step** (Legendary, no HP cost) |
 | Co-op | Everyone installs it. Other players' dashes are detected from movement, so they get i-frames too |
 
-## Status: 0.1.0 is a *discovery build*
+## Status: still a *discovery build* (0.2.0)
 
 The Spell Brigade is an IL2CPP game. Its code can only be inspected through files BepInEx generates on a PC with the
 game installed, and those weren't available while writing this mod. So this version **finds the game's player,
@@ -36,6 +37,7 @@ Hold **Left Ctrl** and press:
 | Ctrl + 4 | Quick Recovery |
 | Ctrl + 5 | Long Stride |
 | Ctrl + 6 | Blazing Dash |
+| Ctrl + 7 | Ethereal Step (dashes stop costing HP) |
 
 All of these can be rebound under `[Debug]` in the config (e.g. `<Keyboard>/k`, `<Keyboard>/numpad1`).
 
@@ -70,7 +72,7 @@ your PC.
 dotnet build src/SpellBrigadeDash -c Release -p:DeployToGame=true
 ```
 
-7. **Start modded** again. The BepInEx console shows `SpellBrigadeDash 0.1.0 loaded`. Start a run and press Shift.
+7. **Start modded** again. The BepInEx console shows `SpellBrigadeDash 0.2.0 loaded`. Start a run and press Space.
 
 Other build commands:
 
@@ -82,7 +84,7 @@ dotnet build src/SpellBrigadeDash -c Release
 dotnet build src/SpellBrigadeDash -c Release -t:Package
 ```
 
-The first builds `src/SpellBrigadeDash/bin/Release/SpellBrigadeDash.dll`. The second builds `dist/SpellBrigadeDash-0.1.0.zip`, which you can import
+The first builds `src/SpellBrigadeDash/bin/Release/SpellBrigadeDash.dll`. The second builds `dist/SpellBrigadeDash-0.2.0.zip`, which you can import
 in r2modman/Gale (*Settings → Import local mod*) or upload to Thunderstore.
 
 **Troubleshooting**
@@ -126,10 +128,10 @@ tools/compile-check/check.sh
 
 After the first launch, edit `BepInEx/config/com.stefanws0.spellbrigadedash.cfg` (with the game closed). Sections:
 
-- **Dash**: distance, duration, charges, recharge, i-frame grace, pass through enemies, input buffer
-- **Controls**: `<Keyboard>/leftShift`, `<Gamepad>/leftShoulder` (any Input System control path), plus legacy KeyCodes
-- **Bar**: size, offset below the feet, colours, auto-hide delay, sorting order
-- **Effects**: afterimages (interval, lifetime, colour), dust puffs, bar feedback, other players' afterimages
+- **Dash**: distance, duration, charges, recharge, HP cost, i-frame grace, pass through enemies, input buffer
+- **Controls**: `<Keyboard>/space`, `<Gamepad>/leftShoulder` (any Input System control path), plus legacy KeyCodes. Not Shift: the game uses it for the stats panel
+- **Bar**: size, offset below the feet, colours, rounded shape or one of the game's own sprites, auto-hide delay, sorting order
+- **Effects**: afterimages (interval, lifetime, start/fade colour), sparkles, speed streaks, dust, bar feedback, other players' afterimages
 - **Sound**: on/off, exact clip name or name hints, volume
 - **Upgrades**: rarity, stack limit and strength of every card
 - **Multiplayer**: protect other players while they dash, detection threshold

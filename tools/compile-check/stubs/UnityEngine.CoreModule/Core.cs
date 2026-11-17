@@ -85,6 +85,7 @@ namespace UnityEngine
         public Vector2 pivot { get; set; }
         public Vector2 sizeDelta { get; set; }
         public Vector2 anchoredPosition { get; set; }
+        public Rect rect => default;
     }
 
     public class Renderer : Component
@@ -146,10 +147,14 @@ namespace UnityEngine
         public static Shader Find(string name) => null;
     }
 
+    public enum SpriteMeshType { FullRect, Tight }
+
     public sealed class Sprite : Object
     {
         public Sprite(IntPtr pointer) : base(pointer) { }
+        public Vector4 border => default;
         public static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot, float pixelsPerUnit) => null;
+        public static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot, float pixelsPerUnit, uint extrude, SpriteMeshType meshType, Vector4 border) => null;
     }
 
     public enum TextureFormat { RGBA32 = 4 }
@@ -221,7 +226,7 @@ namespace UnityEngine
 
     public enum KeyCode
     {
-        None = 0, A = 97, D = 100, S = 115, W = 119, UpArrow = 273, DownArrow = 274, RightArrow = 275, LeftArrow = 276,
+        None = 0, Space = 32, A = 97, D = 100, S = 115, W = 119, UpArrow = 273, DownArrow = 274, RightArrow = 275, LeftArrow = 276,
         F5 = 286, F6 = 287, F7 = 288, F8 = 289, F9 = 290, F10 = 291, LeftShift = 304, JoystickButton4 = 334,
     }
 
@@ -376,5 +381,8 @@ namespace UnityEngine.UI
     {
         public Image(IntPtr pointer) : base(pointer) { }
         public UnityEngine.Sprite sprite { get; set; }
+        public Type type { get; set; }
+
+        public enum Type { Simple, Sliced, Tiled, Filled }
     }
 }

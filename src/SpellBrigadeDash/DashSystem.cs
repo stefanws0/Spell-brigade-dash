@@ -20,7 +20,9 @@ using UnityEngine;
 /// </summary>
 internal sealed class DashSystem
 {
-    private const float FlameSpacingFactor = 0.35f; // flames per wizard-size of distance
+    private const float FlameSpacingFactor = 0.22f; // distance between flames, relative to the wizard's size
+    private const float SparkleSpacingFactor = 0.16f; // distance between sparkles, relative to the wizard's size
+    private const float StreakInterval = 0.018f;
 
     private readonly DashInput _input = new();
     private readonly DashProgress _progress = new();
@@ -33,8 +35,12 @@ internal sealed class DashSystem
 
     private IReadOnlyList<DashCardDef> _cards = Array.Empty<DashCardDef>();
     private DashBaseStats _stats = new();
-    private Color _ghostTint;
+    private Color _ghostStart;
+    private Color _ghostEnd;
     private Color _dustColor;
+    private Color _sparkleStart;
+    private Color _sparkleEnd;
+    private Color _streakColor;
     private bool _initialized;
     private ActiveDash? _active;
     private float _bufferedUntil = -1f;
@@ -43,6 +49,7 @@ internal sealed class DashSystem
     private bool _hooksInstalled;
     private int _remoteDashes;
     private int _localDashes;
+    private readonly System.Random _rng = new();
 
     public static DashSystem Instance { get; } = new();
 
@@ -137,8 +144,12 @@ internal sealed class DashSystem
         _initialized = true;
         _stats = ModConfig.BaseStats();
         _cards = DashCards.Build(ModConfig.CardSettings());
-        _ghostTint = FxAssets.ParseColor(ModConfig.AfterimageColor.Value, new Color(0.56f, 0.85f, 1f, 0.6f));
-        _dustColor = FxAssets.ParseColor(ModConfig.DustColor.Value, new Color(0.9f, 0.86f, 0.78f, 0.8f));
+        _ghostStart = FxAssets.ParseColor(ModConfig.AfterimageColor.Value, new Color(0.94f, 0.78f, 1f, 0.85f));
+        _ghostEnd = FxAssets.ParseColor(ModConfig.AfterimageFadeColor.Value, new Color(0.42f, 0.17f, 1f, 0f));
+        _dustColor = FxAssets.ParseColor(ModConfig.DustColor.Value, new Color(0.89f, 0.84f, 0.95f, 0.94f));
+        _sparkleStart = FxAssets.ParseColor(ModConfig.SparkleColor.Value, new Color(1f, 0.88f, 1f, 1f));
+        _sparkleEnd = FxAssets.ParseColor(ModConfig.SparkleFadeColor.Value, new Color(0.61f, 0.36f, 1f, 1f));
+        _streakColor = FxAssets.ParseColor(ModConfig.StreakColor.Value, new Color(0.82f, 0.66f, 1f, 0.75f));
         Locator.LocalChanged += OnNewLocalPlayer;
         // Nothing risky here: Harmony patches wait until a run has started (see InstallHooks).
         ModLog.Step("Init: done");
@@ -236,6 +247,7 @@ internal sealed class DashSystem
             Speed = distance / duration,
             MaxTime = duration * 2f + 0.05f,
             FlameSpacing = Math.Max(0.05f, p.VisualSize * FlameSpacingFactor),
+            SparkleSpacing = Math.Max(0.05f, p.VisualSize * SparkleSpacingFactor),
         };
         _localDashes++;
 
@@ -243,11 +255,25 @@ internal sealed class DashSystem
         Invulnerability.Grant(p, iframes);
         NetBridge.SendDash(iframes);
 
+        // The price of an early dash: a share of max HP (never the last point) until Ethereal Step.
+        var hpTaken = HealthBridge.ApplyCost(p, DashTuning.HealthCostFraction(_stats, _progress));
+        if (hpTaken > 0f) ModLog.Debug($"Dash cost {hpTaken:0.#} HP.");
+
         _bar.OnDash(now);
         if (ModConfig.DustPuff.Value) _fx.SpawnPuff(p, p.Feet, dir, _dustColor, 1f);
-        if (ModConfig.Afterimages.Value) _fx.SpawnAfterimage(p, _ghostTint, ModConfig.AfterimageLifetime.Value);
+        if (ModConfig.Afterimages.Value) _fx.SpawnAfterimage(p, _ghostStart, _ghostEnd, ModConfig.AfterimageLifetime.Value);
         _active.NextGhost = ModConfig.AfterimageInterval.Value;
         Sound.Play(_fx.Root, now);
+    }
+
+    /// <summary>Roughly the middle of the wizard's body (for streaks and sparkles).</summary>
+    private static Vector3 BodyCenter(PlayerInfo p)
+        => p.Feet + (p.Is2D ? new Vector3(0f, p.VisualSize * 0.45f, 0f) : Vector3.up * p.VisualSize * 0.45f);
+
+    private static Vector3 RandomInBody(PlayerInfo p, System.Random rng)
+    {
+        var h = p.VisualSize * (0.1f + 0.8f * (float)rng.NextDouble());
+        return p.Feet + (p.Is2D ? new Vector3(0f, h, 0f) : Vector3.up * h);
     }
 
     private void StepDash(PlayerInfo p, float now, float dt)
@@ -263,8 +289,26 @@ internal sealed class DashSystem
 
         if (ModConfig.Afterimages.Value && a.Elapsed >= a.NextGhost)
         {
-            _fx.SpawnAfterimage(p, _ghostTint, ModConfig.AfterimageLifetime.Value);
+            _fx.SpawnAfterimage(p, _ghostStart, _ghostEnd, ModConfig.AfterimageLifetime.Value);
             a.NextGhost = a.Elapsed + Math.Max(0.01f, ModConfig.AfterimageInterval.Value);
+        }
+
+        if (ModConfig.SpeedStreaks.Value && a.Elapsed >= a.NextStreak)
+        {
+            var center = BodyCenter(p);
+            _fx.SpawnStreak(p, center, a.Dir, _streakColor);
+            _fx.SpawnStreak(p, center, a.Dir, _streakColor);
+            a.NextStreak = a.Elapsed + StreakInterval;
+        }
+
+        if (ModConfig.Sparkles.Value)
+        {
+            while (a.Travelled >= a.NextSparkleAt)
+            {
+                var back = a.Travelled - a.NextSparkleAt;
+                _fx.SpawnSparkle(p, RandomInBody(p, _rng) - a.Dir * back, _sparkleStart, _sparkleEnd);
+                a.NextSparkleAt += a.SparkleSpacing;
+            }
         }
 
         if (DashTuning.Blazing(_progress))
@@ -287,7 +331,8 @@ internal sealed class DashSystem
     {
         var a = _active!;
         _active = null;
-        if (ModConfig.DustPuffOnLanding.Value) _fx.SpawnPuff(p, p.Feet, a.Dir, _dustColor, 0.55f);
+        if (ModConfig.DustPuffOnLanding.Value) _fx.SpawnPuff(p, p.Feet, a.Dir, _dustColor, 0.6f);
+        if (ModConfig.Sparkles.Value) _fx.SpawnSparkleBurst(p, BodyCenter(p), _sparkleStart, _sparkleEnd, 8);
     }
 
     /// <summary>Movement input → world direction; standing still → last movement / facing direction.</summary>
@@ -392,7 +437,7 @@ internal sealed class DashSystem
             }
 
             if (now < e.Next) continue;
-            _fx.SpawnAfterimage(e.Player, _ghostTint, ModConfig.AfterimageLifetime.Value);
+            _fx.SpawnAfterimage(e.Player, _ghostStart, _ghostEnd, ModConfig.AfterimageLifetime.Value);
             e.Next = now + Math.Max(0.02f, ModConfig.AfterimageInterval.Value);
         }
 
@@ -420,6 +465,7 @@ internal sealed class DashSystem
         if (_input.DebugPressed(DebugKey.QuickRecovery)) ApplyCard(DashCardId.QuickRecovery);
         if (_input.DebugPressed(DebugKey.LongStride)) ApplyCard(DashCardId.LongStride);
         if (_input.DebugPressed(DebugKey.BlazingDash)) ApplyCard(DashCardId.BlazingDash);
+        if (_input.DebugPressed(DebugKey.EtherealStep)) ApplyCard(DashCardId.EtherealStep);
     }
 
     /// <summary>Apply a dash card to the local player (debug hotkeys now, the level-up screen later).</summary>
@@ -452,6 +498,7 @@ internal sealed class DashSystem
         foreach (var c in _cards)
             sb.AppendLine($"  {c.Title,-16} {c.Rarity,-10} max {c.MaxStacks}  taken {_progress.Stacks(c.Id)}  offerable now: {DashCards.IsAvailable(c, _progress)}");
         sb.AppendLine($"Dash sound: {Sound.Status}");
+        sb.AppendLine($"Dash HP cost: {DashTuning.HealthCostFraction(_stats, _progress) * 100f:0.#}% of max HP; health: {HealthBridge.Status}");
     }
 
     // =========================================================================== types
@@ -467,6 +514,9 @@ internal sealed class DashSystem
         public float Travelled;
         public float NextFlameAt;
         public float FlameSpacing;
+        public float NextSparkleAt;
+        public float SparkleSpacing;
+        public float NextStreak;
     }
 
     private sealed class RemoteEmitter

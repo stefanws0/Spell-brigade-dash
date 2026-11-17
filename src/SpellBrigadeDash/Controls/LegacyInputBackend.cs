@@ -16,7 +16,7 @@ internal sealed class LegacyInputBackend : IInputBackend
     {
         var b = new LegacyInputBackend
         {
-            _key = Parse(ModConfig.LegacyKey.Value, KeyCode.LeftShift),
+            _key = Parse(ModConfig.LegacyKey.Value, KeyCode.Space),
             _padKey = Parse(ModConfig.LegacyGamepadKey.Value, KeyCode.JoystickButton4),
         };
 

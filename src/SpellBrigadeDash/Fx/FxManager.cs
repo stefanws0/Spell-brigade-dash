@@ -8,13 +8,14 @@ using Object = UnityEngine.Object;
 using Random = System.Random;
 
 /// <summary>
-/// Spawns and animates every world-space effect: afterimages, dust puffs and the Blazing Dash trail.
-/// Everything is animated from here each frame (no extra MonoBehaviours), and each effect
+/// Spawns and animates every world-space effect: afterimages, dust, sparkles, speed streaks and the Blazing
+/// Dash fire. Everything is animated from here each frame (no extra MonoBehaviours), and each effect
 /// destroys its own objects when it ends.
 /// </summary>
 internal sealed class FxManager
 {
-    private const int MaxItems = 160;
+    private const int MaxItems = 260;
+    private const float Rad2Deg = 57.29578f;
     private readonly List<FxItem> _items = new();
     private readonly Random _rng = new();
     private GameObject? _root;
@@ -79,20 +80,21 @@ internal sealed class FxManager
         _items.Add(item);
     }
 
-    // ------------------------------------------------------------------------------- afterimages
+    // =============================================================================== afterimages
 
-    public void SpawnAfterimage(PlayerInfo p, Color tint, float life)
+    /// <summary>A copy of the wizard that glows from <paramref name="start"/> to <paramref name="end"/> while fading and swelling slightly.</summary>
+    public void SpawnAfterimage(PlayerInfo p, Color start, Color end, float life)
     {
         ModLog.StepOnce("ghost", $"fx: first afterimage ({(p.Is2D ? "sprites" : "meshes")})");
-        if (p.Is2D) SpawnSpriteGhost(p, tint, life);
-        else SpawnMeshGhost(p, tint, life);
+        if (p.Is2D) SpawnSpriteGhost(p, start, end, life);
+        else SpawnMeshGhost(p, start, end, life);
     }
 
-    private void SpawnSpriteGhost(PlayerInfo p, Color tint, float life)
+    private void SpawnSpriteGhost(PlayerInfo p, Color start, Color end, float life)
     {
         var ghost = new GameObject("SBD_Afterimage");
         ghost.transform.SetParent(Root.transform, false);
-        var item = new SpriteGhost(ghost, tint, life);
+        var item = new SpriteGhost(ghost, start, end, life);
         var silhouette = FxAssets.SilhouetteShader2D;
 
         foreach (var src in p.Root.GetComponentsInChildren<SpriteRenderer>(false))
@@ -118,11 +120,11 @@ internal sealed class FxManager
                 item.Materials.Add(mat);
             }
 
-            sr.color = tint;
-            item.Renderers.Add(sr);
+            sr.color = start;
+            item.Parts.Add((part.transform, st.lossyScale, sr));
         }
 
-        if (item.Renderers.Count == 0)
+        if (item.Parts.Count == 0)
         {
             Object.Destroy(ghost);
             return;
@@ -131,7 +133,7 @@ internal sealed class FxManager
         Add(item);
     }
 
-    private void SpawnMeshGhost(PlayerInfo p, Color tint, float life)
+    private void SpawnMeshGhost(PlayerInfo p, Color start, Color end, float life)
     {
         var shader = FxAssets.GhostShader3D;
         if (shader == null)
@@ -142,8 +144,8 @@ internal sealed class FxManager
 
         var ghost = new GameObject("SBD_Afterimage");
         ghost.transform.SetParent(Root.transform, false);
-        var mat = new Material(shader) { color = tint };
-        var item = new MeshGhost(ghost, mat, tint, life);
+        var mat = new Material(shader) { color = start };
+        var item = new MeshGhost(ghost, mat, start, end, life);
 
         foreach (var smr in p.Root.GetComponentsInChildren<SkinnedMeshRenderer>(false))
         {
@@ -151,7 +153,7 @@ internal sealed class FxManager
             var mesh = new Mesh();
             smr.BakeMesh(mesh);
             item.Meshes.Add(mesh);
-            AddMeshPart(ghost, smr.transform, mesh, mat);
+            item.Parts.Add(AddMeshPart(ghost, smr.transform, mesh, mat));
         }
 
         foreach (var mr in p.Root.GetComponentsInChildren<MeshRenderer>(false))
@@ -159,10 +161,10 @@ internal sealed class FxManager
             if (mr == null || !mr.enabled) continue;
             var mf = mr.GetComponent<MeshFilter>();
             if (mf == null || mf.sharedMesh == null) continue;
-            AddMeshPart(ghost, mr.transform, mf.sharedMesh, mat);
+            item.Parts.Add(AddMeshPart(ghost, mr.transform, mf.sharedMesh, mat));
         }
 
-        if (ghost.transform.childCount == 0)
+        if (item.Parts.Count == 0)
         {
             item.Destroy();
             return;
@@ -171,7 +173,7 @@ internal sealed class FxManager
         Add(item);
     }
 
-    private static void AddMeshPart(GameObject ghost, Transform src, Mesh mesh, Material mat)
+    private static (Transform, Vector3, SpriteRenderer?) AddMeshPart(GameObject ghost, Transform src, Mesh mesh, Material mat)
     {
         var part = new GameObject("part");
         part.transform.SetParent(ghost.transform, false);
@@ -179,46 +181,132 @@ internal sealed class FxManager
         part.transform.rotation = src.rotation;
         part.transform.localScale = src.lossyScale;
         part.AddComponent<MeshFilter>().sharedMesh = mesh;
-        var r = part.AddComponent<MeshRenderer>();
-        r.sharedMaterial = mat;
+        part.AddComponent<MeshRenderer>().sharedMaterial = mat;
+        return (part.transform, src.lossyScale, null);
     }
 
-    // ------------------------------------------------------------------------------- dust & fire
+    // =============================================================================== dust
 
-    public void SpawnPuff(PlayerInfo p, Vector3 position, Vector3 dashDir, Color color, float strength)
+    /// <summary>A soft dust burst kicked back from the dash direction. Lifted off the ground so it isn't half-hidden.</summary>
+    public void SpawnPuff(PlayerInfo p, Vector3 feet, Vector3 dashDir, Color color, float strength)
     {
         ModLog.StepOnce("puff", "fx: first dust puff");
         var size = p.VisualSize;
-        var count = Math.Max(3, (int)(8 * strength));
-        var side = p.Is2D ? new Vector3(-dashDir.y, dashDir.x, 0f) : Vector3.Cross(Vector3.up, dashDir).normalized;
+        var side = Side(p, dashDir);
+        var up = p.Is2D ? Vector3.zero : Vector3.up;
+        var count = Math.Max(4, (int)(14 * strength));
         for (var i = 0; i < count; i++)
         {
-            var back = -dashDir * Range(0.5f, 1.6f) + side * Range(-1.3f, 1.3f);
-            if (!p.Is2D) back += Vector3.up * Range(0.1f, 0.6f);
-            var vel = back * size * 1.4f * strength;
-            var start = position + side * Range(-0.15f, 0.15f) * size;
-            var part = MakeParticle(p, start, color, -2);
-            Add(new Particle(part.go, part.sr, vel, size * 0.22f * strength, size * 0.55f * strength, color, Range(0.28f, 0.42f), !p.Is2D, drag: 4f));
+            var vel = (-dashDir * Range(0.4f, 1.6f) + side * Range(-1.6f, 1.6f) + up * Range(0.3f, 1.1f)) * size * 1.6f * strength;
+            var pos = feet + side * Range(-0.25f, 0.25f) * size + up * size * Range(0.15f, 0.35f)
+                      + (p.Is2D ? new Vector3(0f, size * Range(0.02f, 0.12f), 0f) : Vector3.zero);
+            var sr = MakeSprite(p, FxAssets.SoftCircle, pos, -2, glow: false);
+            Add(new Particle(sr, vel, drag: 3.2f, accel: Vector3.zero,
+                size0: size * Range(0.28f, 0.4f) * strength, size1: size * Range(0.75f, 1.05f) * strength,
+                c0: color, c1: FxAssets.WithAlpha(color, color.a * 0.6f), alphaPow: 1.6f,
+                twinkle: 0f, spin: Range(-60f, 60f), life: Range(0.45f, 0.7f), billboard: !p.Is2D, seed: Range(0f, 10f)));
         }
     }
 
-    public void SpawnFlame(PlayerInfo p, Vector3 position, float life)
+    // =============================================================================== sparkles
+
+    /// <summary>One arcane sparkle that drifts up and twinkles out.</summary>
+    public void SpawnSparkle(PlayerInfo p, Vector3 pos, Color start, Color end, float scale = 1f)
     {
+        ModLog.StepOnce("sparkle", "fx: first sparkle");
         var size = p.VisualSize;
-        var color = new Color(1f, Range(0.45f, 0.7f), 0.15f, 0.85f);
-        var part = MakeParticle(p, position, color, -1);
-        var rise = p.Is2D ? new Vector3(0f, 0.15f, 0f) : new Vector3(0f, 0.35f, 0f);
-        Add(new Flame(part.go, part.sr, rise * size, size * Range(0.35f, 0.5f), color, life + Range(-0.15f, 0.15f), !p.Is2D, (float)_rng.NextDouble() * 10f));
+        var drift = p.Is2D
+            ? new Vector3(Range(-0.4f, 0.4f), Range(0.2f, 0.7f), 0f)
+            : new Vector3(Range(-0.4f, 0.4f), Range(0.4f, 1.0f), Range(-0.4f, 0.4f));
+        var sr = MakeSprite(p, FxAssets.Sparkle, pos, -1, glow: true);
+        Add(new Particle(sr, drift * size * 0.6f, drag: 1.5f, accel: Vector3.zero,
+            size0: size * Range(0.16f, 0.28f) * scale, size1: size * Range(0.04f, 0.08f) * scale,
+            c0: start, c1: end, alphaPow: 1.2f,
+            twinkle: 0.55f, spin: Range(-120f, 120f), life: Range(0.45f, 0.85f), billboard: !p.Is2D, seed: Range(0f, 10f)));
     }
 
-    private (GameObject go, SpriteRenderer sr) MakeParticle(PlayerInfo p, Vector3 pos, Color color, int orderOffset)
+    /// <summary>A ring of sparkles bursting outward (landing).</summary>
+    public void SpawnSparkleBurst(PlayerInfo p, Vector3 center, Color start, Color end, int count)
+    {
+        var size = p.VisualSize;
+        for (var i = 0; i < count; i++)
+        {
+            var a = (float)(i / (double)count * Math.PI * 2 + Range(0f, 0.5f));
+            var dir = p.Is2D ? new Vector3(MathF.Cos(a), MathF.Sin(a), 0f) : new Vector3(MathF.Cos(a), 0.35f, MathF.Sin(a));
+            var sr = MakeSprite(p, FxAssets.Sparkle, center + dir * size * 0.15f, -1, glow: true);
+            Add(new Particle(sr, dir * size * Range(1.4f, 2.4f), drag: 4f, accel: Vector3.zero,
+                size0: size * Range(0.18f, 0.26f), size1: size * 0.05f, c0: start, c1: end, alphaPow: 1.3f,
+                twinkle: 0.4f, spin: Range(-180f, 180f), life: Range(0.35f, 0.6f), billboard: !p.Is2D, seed: Range(0f, 10f)));
+        }
+    }
+
+    // =============================================================================== speed streaks
+
+    /// <summary>A thin light line behind the wizard, aligned with the dash.</summary>
+    public void SpawnStreak(PlayerInfo p, Vector3 bodyCenter, Vector3 dashDir, Color color)
+    {
+        ModLog.StepOnce("streak", "fx: first speed streak");
+        var size = p.VisualSize;
+        var side = Side(p, dashDir);
+        var up = p.Is2D ? new Vector3(0f, 1f, 0f) : Vector3.up;
+        var length = size * Range(0.9f, 1.6f);
+        var pos = bodyCenter + side * Range(-0.45f, 0.45f) * size + up * Range(-0.35f, 0.35f) * size - dashDir * length * Range(0.4f, 0.8f);
+        var sr = MakeSprite(p, FxAssets.Streak, pos, -1, glow: true);
+        Add(new Streak(sr, dashDir, p.Is2D, length, size * Range(0.06f, 0.1f), color, Range(0.14f, 0.24f)));
+    }
+
+    // =============================================================================== blazing dash fire
+
+    /// <summary>An upright flickering flame (outer flame + hot core) with the odd ember, standing on the ground.</summary>
+    public void SpawnFlame(PlayerInfo p, Vector3 feet, float life)
+    {
+        ModLog.StepOnce("flame", "fx: first flame");
+        var size = p.VisualSize;
+        var go = new GameObject("SBD_Flame");
+        go.transform.SetParent(Root.transform, false);
+        go.transform.position = feet + (p.Is2D ? Vector3.zero : Vector3.up * 0.02f);
+
+        var outer = AddChildSprite(go, p, FxAssets.Flame, -1, glow: false);
+        var core = AddChildSprite(go, p, FxAssets.Flame, 0, glow: true);
+        var height = size * Range(0.45f, 0.7f);
+        Add(new Flame(go, outer, core, height, life + Range(-0.2f, 0.2f), !p.Is2D, Range(0f, 10f)));
+
+        if (_rng.NextDouble() < 0.6) SpawnEmber(p, feet + (p.Is2D ? new Vector3(0f, height * 0.4f, 0f) : Vector3.up * height * 0.4f));
+    }
+
+    private void SpawnEmber(PlayerInfo p, Vector3 pos)
+    {
+        var size = p.VisualSize;
+        var rise = p.Is2D ? new Vector3(Range(-0.3f, 0.3f), Range(0.8f, 1.4f), 0f) : new Vector3(Range(-0.3f, 0.3f), Range(0.9f, 1.6f), Range(-0.3f, 0.3f));
+        var sr = MakeSprite(p, FxAssets.SoftCircle, pos, 1, glow: true);
+        Add(new Particle(sr, rise * size, drag: 0.8f, accel: Vector3.zero,
+            size0: size * 0.07f, size1: size * 0.02f, c0: new Color(1f, 0.85f, 0.4f, 1f), c1: new Color(1f, 0.3f, 0.1f, 0.8f),
+            alphaPow: 1f, twinkle: 0.5f, spin: 0f, life: Range(0.6f, 1.1f), billboard: !p.Is2D, seed: Range(0f, 10f)));
+    }
+
+    // =============================================================================== helpers
+
+    private SpriteRenderer MakeSprite(PlayerInfo p, Sprite sprite, Vector3 pos, int orderOffset, bool glow)
     {
         var go = new GameObject("SBD_Particle");
         go.transform.SetParent(Root.transform, false);
         go.transform.position = pos;
+        return SetupRenderer(go, p, sprite, orderOffset, glow);
+    }
+
+    private static SpriteRenderer AddChildSprite(GameObject parent, PlayerInfo p, Sprite sprite, int orderOffset, bool glow)
+    {
+        var go = new GameObject("layer");
+        go.transform.SetParent(parent.transform, false);
+        return SetupRenderer(go, p, sprite, orderOffset, glow);
+    }
+
+    private static SpriteRenderer SetupRenderer(GameObject go, PlayerInfo p, Sprite sprite, int orderOffset, bool glow)
+    {
         var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = FxAssets.SoftCircle;
-        sr.color = color;
+        sr.sprite = sprite;
+        var glowMat = glow ? FxAssets.Glow : null;
+        if (glowMat != null) sr.sharedMaterial = glowMat;
         var main = p.MainRenderer?.TryCast<SpriteRenderer>();
         if (main != null)
         {
@@ -226,12 +314,34 @@ internal sealed class FxManager
             sr.sortingOrder = main.sortingOrder + orderOffset;
         }
 
-        return (go, sr);
+        return sr;
     }
+
+    private static Vector3 Side(PlayerInfo p, Vector3 dir)
+        => p.Is2D ? new Vector3(-dir.y, dir.x, 0f) : Vector3.Cross(Vector3.up, dir).normalized;
 
     private float Range(float min, float max) => min + (float)_rng.NextDouble() * (max - min);
 
-    // ------------------------------------------------------------------------------- item types
+    private static void SafeDestroy(Object? o)
+    {
+        try
+        {
+            if (o != null) Object.Destroy(o);
+        }
+        catch
+        {
+            // already gone
+        }
+    }
+
+    /// <summary>Sprite rotation that faces the camera; in 2D just a spin around Z.</summary>
+    private static Quaternion Facing(Camera? cam, bool billboard, float spinDegrees)
+    {
+        if (billboard && cam != null) return cam.transform.rotation * Quaternion.Euler(0f, 0f, spinDegrees);
+        return Quaternion.Euler(0f, 0f, spinDegrees);
+    }
+
+    // =============================================================================== item types
 
     private abstract class FxItem
     {
@@ -244,22 +354,28 @@ internal sealed class FxManager
     private sealed class SpriteGhost : FxItem
     {
         private readonly GameObject _go;
-        private readonly Color _tint;
-        public readonly List<SpriteRenderer> Renderers = new();
+        private readonly Color _start;
+        private readonly Color _end;
+        public readonly List<(Transform t, Vector3 baseScale, SpriteRenderer sr)> Parts = new();
         public readonly List<Material> Materials = new();
 
-        public SpriteGhost(GameObject go, Color tint, float life)
+        public SpriteGhost(GameObject go, Color start, Color end, float life)
         {
             _go = go;
-            _tint = tint;
+            _start = start;
+            _end = end;
             Life = life;
         }
 
         public override void Tick(float t, float dt, Camera? cam)
         {
-            var a = _tint.a * (1f - t) * (1f - t);
-            var c = FxAssets.WithAlpha(_tint, a);
-            foreach (var r in Renderers) r.color = c;
+            var c = FxAssets.WithAlpha(Color.Lerp(_start, _end, t), _start.a * (1f - t) * (1f - t));
+            var swell = 1f + 0.1f * t;
+            foreach (var (tr, baseScale, sr) in Parts)
+            {
+                sr.color = c;
+                tr.localScale = baseScale * swell;
+            }
         }
 
         public override void Destroy()
@@ -273,18 +389,27 @@ internal sealed class FxManager
     {
         private readonly GameObject _go;
         private readonly Material _mat;
-        private readonly Color _tint;
+        private readonly Color _start;
+        private readonly Color _end;
         public readonly List<Mesh> Meshes = new();
+        public readonly List<(Transform t, Vector3 baseScale, SpriteRenderer? sr)> Parts = new();
 
-        public MeshGhost(GameObject go, Material mat, Color tint, float life)
+        public MeshGhost(GameObject go, Material mat, Color start, Color end, float life)
         {
             _go = go;
             _mat = mat;
-            _tint = tint;
+            _start = start;
+            _end = end;
             Life = life;
         }
 
-        public override void Tick(float t, float dt, Camera? cam) => _mat.color = FxAssets.WithAlpha(_tint, _tint.a * (1f - t) * (1f - t));
+        public override void Tick(float t, float dt, Camera? cam)
+        {
+            var c = Color.Lerp(_start, _end, t);
+            _mat.color = FxAssets.WithAlpha(c, _start.a * (1f - t) * (1f - t));
+            var swell = 1f + 0.06f * t;
+            foreach (var (tr, baseScale, _) in Parts) tr.localScale = baseScale * swell;
+        }
 
         public override void Destroy()
         {
@@ -294,76 +419,152 @@ internal sealed class FxManager
         }
     }
 
-    private class Particle : FxItem
+    /// <summary>Generic sprite particle: velocity + drag, size curve, colour gradient, fade, optional twinkle and spin.</summary>
+    private sealed class Particle : FxItem
     {
-        protected readonly GameObject Go;
-        protected readonly SpriteRenderer Sr;
-        protected readonly Color Color;
-        protected readonly bool Billboard;
-        private readonly float _startSize;
-        private readonly float _endSize;
+        private readonly SpriteRenderer _sr;
+        private readonly Transform _t;
         private readonly float _drag;
+        private readonly Vector3 _accel;
+        private readonly float _size0;
+        private readonly float _size1;
+        private readonly Color _c0;
+        private readonly Color _c1;
+        private readonly float _alphaPow;
+        private readonly float _twinkle;
+        private readonly float _spin;
+        private readonly bool _billboard;
+        private readonly float _seed;
         private Vector3 _vel;
 
-        public Particle(GameObject go, SpriteRenderer sr, Vector3 vel, float startSize, float endSize, Color color, float life, bool billboard, float drag)
+        public Particle(SpriteRenderer sr, Vector3 vel, float drag, Vector3 accel, float size0, float size1, Color c0, Color c1,
+            float alphaPow, float twinkle, float spin, float life, bool billboard, float seed)
         {
-            Go = go;
-            Sr = sr;
+            _sr = sr;
+            _t = sr.transform;
             _vel = vel;
-            _startSize = startSize;
-            _endSize = endSize;
-            Color = color;
-            Life = life;
-            Billboard = billboard;
             _drag = drag;
-            go.transform.localScale = Vector3.one * startSize;
+            _accel = accel;
+            _size0 = size0;
+            _size1 = size1;
+            _c0 = c0;
+            _c1 = c1;
+            _alphaPow = alphaPow;
+            _twinkle = twinkle;
+            _spin = spin;
+            _billboard = billboard;
+            _seed = seed;
+            Life = life;
+            _t.localScale = Vector3.one * size0;
+            _sr.color = c0;
         }
 
         public override void Tick(float t, float dt, Camera? cam)
         {
-            var tr = Go.transform;
-            tr.position += _vel * dt;
-            _vel *= Math.Max(0f, 1f - _drag * dt);
-            tr.localScale = Vector3.one * Mathf.Lerp(_startSize, _endSize, 1f - (1f - t) * (1f - t));
-            if (Billboard && cam != null) tr.rotation = cam.transform.rotation;
-            Sr.color = FxAssets.WithAlpha(Color, Color.a * (1f - t) * (1f - t));
+            _t.position += _vel * dt;
+            _vel = (_vel + _accel * dt) * Math.Max(0f, 1f - _drag * dt);
+            var ease = 1f - (1f - t) * (1f - t);
+            _t.localScale = Vector3.one * Mathf.Lerp(_size0, _size1, ease);
+            _t.rotation = Facing(cam, _billboard, _seed * 36f + _spin * Age);
+            var c = Color.Lerp(_c0, _c1, t);
+            var twinkle = 1f - _twinkle + _twinkle * (0.5f + 0.5f * Mathf.Sin(Age * 28f + _seed * 7f));
+            _sr.color = FxAssets.WithAlpha(c, c.a * MathF.Pow(1f - t, _alphaPow) * twinkle);
         }
 
-        public override void Destroy() => SafeDestroy(Go);
+        public override void Destroy() => SafeDestroy(_sr.gameObject);
     }
 
-    private sealed class Flame : Particle
+    /// <summary>A stretched light line aligned with the dash direction (facing the camera in 3D).</summary>
+    private sealed class Streak : FxItem
     {
-        private readonly float _size;
+        private readonly SpriteRenderer _sr;
+        private readonly Transform _t;
+        private readonly Vector3 _dir;
+        private readonly bool _is2D;
+        private readonly float _length;
+        private readonly float _thickness;
+        private readonly Color _color;
+
+        public Streak(SpriteRenderer sr, Vector3 dir, bool is2D, float length, float thickness, Color color, float life)
+        {
+            _sr = sr;
+            _t = sr.transform;
+            _dir = dir;
+            _is2D = is2D;
+            _length = length;
+            _thickness = thickness;
+            _color = color;
+            Life = life;
+            _sr.color = color;
+        }
+
+        public override void Tick(float t, float dt, Camera? cam)
+        {
+            if (_is2D)
+            {
+                _t.rotation = Quaternion.Euler(0f, 0f, MathF.Atan2(_dir.y, _dir.x) * Rad2Deg);
+            }
+            else if (cam != null)
+            {
+                // Lie in the camera's view plane with the sprite's X axis along the dash.
+                var fwd = cam.transform.forward;
+                var along = _dir - fwd * Vector3.Dot(_dir, fwd);
+                if (along.sqrMagnitude > 1e-6f) _t.rotation = Quaternion.LookRotation(fwd, Vector3.Cross(fwd, along.normalized));
+            }
+
+            // sprite is 1 x 0.125 units: scale X = length, Y = thickness
+            _t.localScale = new Vector3(_length * (1f - 0.4f * t), _thickness / 0.125f * (1f - 0.5f * t), 1f);
+            _sr.color = FxAssets.WithAlpha(_color, _color.a * (1f - t));
+        }
+
+        public override void Destroy() => SafeDestroy(_sr.gameObject);
+    }
+
+    /// <summary>Two-layer flame (orange body + glowing yellow core) that flickers, sways and dies down.</summary>
+    private sealed class Flame : FxItem
+    {
+        private static readonly Color OuterHot = new(1f, 0.55f, 0.12f, 0.95f);
+        private static readonly Color OuterCool = new(0.85f, 0.18f, 0.08f, 0.85f);
+        private static readonly Color CoreColor = new(1f, 0.93f, 0.6f, 1f);
+
+        private readonly GameObject _go;
+        private readonly SpriteRenderer _outer;
+        private readonly SpriteRenderer _core;
+        private readonly float _height;
+        private readonly bool _billboard;
         private readonly float _seed;
 
-        public Flame(GameObject go, SpriteRenderer sr, Vector3 rise, float size, Color color, float life, bool billboard, float seed)
-            : base(go, sr, rise, size, size, color, life, billboard, 0f)
+        public Flame(GameObject go, SpriteRenderer outer, SpriteRenderer core, float height, float life, bool billboard, float seed)
         {
-            _size = size;
+            _go = go;
+            _outer = outer;
+            _core = core;
+            _height = height;
+            Life = life;
+            _billboard = billboard;
             _seed = seed;
         }
 
         public override void Tick(float t, float dt, Camera? cam)
         {
-            base.Tick(t, dt, cam);
-            var flicker = 0.85f + 0.15f * Mathf.Sin((Age + _seed) * 25f);
-            var fade = t < 0.75f ? 1f : 1f - (t - 0.75f) / 0.25f;
-            Go.transform.localScale = Vector3.one * (_size * flicker * (0.6f + 0.4f * fade));
-            var c = Color.Lerp(Color, new Color(0.9f, 0.2f, 0.1f, Color.a), t);
-            Sr.color = FxAssets.WithAlpha(c, Color.a * fade);
-        }
-    }
+            // grow in quickly, burn, then die down
+            var grow = Mathf.Clamp01(Age / 0.12f);
+            var die = t < 0.65f ? 1f : 1f - (t - 0.65f) / 0.35f;
+            var flicker = 0.82f + 0.18f * Mathf.Sin(Age * 23f + _seed) * Mathf.Sin(Age * 13.7f + _seed * 2f);
+            var h = _height * grow * die * flicker;
+            var w = _height * 0.55f * grow * (0.9f + 0.1f * Mathf.Sin(Age * 17f + _seed * 3f));
+            var sway = 7f * Mathf.Sin(Age * 9f + _seed);
 
-    private static void SafeDestroy(Object? o)
-    {
-        try
-        {
-            if (o != null) Object.Destroy(o);
+            // sprite is 0.5 x 1 units at scale 1
+            _go.transform.rotation = Facing(cam, _billboard, sway);
+            _outer.transform.localScale = new Vector3(w * 2f, h, 1f);
+            _core.transform.localScale = new Vector3(w * 1.1f, h * 0.6f, 1f);
+
+            var outer = Color.Lerp(OuterHot, OuterCool, t);
+            _outer.color = FxAssets.WithAlpha(outer, outer.a * Mathf.Clamp01(die * 1.3f));
+            _core.color = FxAssets.WithAlpha(CoreColor, Mathf.Clamp01(die * 1.2f) * (0.75f + 0.25f * flicker));
         }
-        catch
-        {
-            // already gone
-        }
+
+        public override void Destroy() => SafeDestroy(_go);
     }
 }

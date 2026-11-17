@@ -18,6 +18,7 @@ internal static class ModConfig
     public static ConfigEntry<bool> PassThroughEnemies = null!;
     public static ConfigEntry<string> EnemyLayerHints = null!;
     public static ConfigEntry<float> InputBuffer = null!;
+    public static ConfigEntry<float> HealthCostPercent = null!;
 
     // ---- Controls ----
     public static ConfigEntry<string> KeyboardBinding = null!;
@@ -38,12 +39,20 @@ internal static class ModConfig
     public static ConfigEntry<string> BarFlashColor = null!;
     public static ConfigEntry<string> BarEmptyColor = null!;
     public static ConfigEntry<int> BarSortingOrder = null!;
+    public static ConfigEntry<bool> BarRounded = null!;
+    public static ConfigEntry<string> BarSpriteName = null!;
 
     // ---- Effects ----
     public static ConfigEntry<bool> Afterimages = null!;
     public static ConfigEntry<float> AfterimageInterval = null!;
     public static ConfigEntry<float> AfterimageLifetime = null!;
     public static ConfigEntry<string> AfterimageColor = null!;
+    public static ConfigEntry<string> AfterimageFadeColor = null!;
+    public static ConfigEntry<bool> Sparkles = null!;
+    public static ConfigEntry<string> SparkleColor = null!;
+    public static ConfigEntry<string> SparkleFadeColor = null!;
+    public static ConfigEntry<bool> SpeedStreaks = null!;
+    public static ConfigEntry<string> StreakColor = null!;
     public static ConfigEntry<bool> DustPuff = null!;
     public static ConfigEntry<bool> DustPuffOnLanding = null!;
     public static ConfigEntry<string> DustColor = null!;
@@ -70,6 +79,7 @@ internal static class ModConfig
     public static ConfigEntry<string> BlazingDashRarity = null!;
     public static ConfigEntry<float> BlazingDashDamage = null!;
     public static ConfigEntry<float> BlazingTrailSeconds = null!;
+    public static ConfigEntry<string> EtherealStepRarity = null!;
 
     // ---- Multiplayer ----
     public static ConfigEntry<bool> RemoteIFrames = null!;
@@ -81,6 +91,8 @@ internal static class ModConfig
     public static ConfigEntry<string> DeadMembers = null!;
     public static ConfigEntry<string> DamageMethods = null!;
     public static ConfigEntry<bool> AutoDamageHooks = null!;
+    public static ConfigEntry<string> HealthMembers = null!;
+    public static ConfigEntry<string> MaxHealthMembers = null!;
 
     // ---- Discovery ----
     public static ConfigEntry<bool> DiscoveryEnabled = null!;
@@ -99,6 +111,12 @@ internal static class ModConfig
     public static ConfigEntry<string> KeyQuickRecovery = null!;
     public static ConfigEntry<string> KeyLongStride = null!;
     public static ConfigEntry<string> KeyBlazingDash = null!;
+    public static ConfigEntry<string> KeyEtherealStep = null!;
+
+    // ---- Internal ----
+    /// <summary>Bumped when shipped defaults change; older config files get those entries reset (see Migrate).</summary>
+    private const int CurrentConfigVersion = 2;
+    public static ConfigEntry<int> ConfigVersion = null!;
 
     public static void Init(ConfigFile cfg)
     {
@@ -107,10 +125,10 @@ internal static class ModConfig
             new ConfigDescription("How far one dash goes, in world units.", new AcceptableValueRange<float>(0.5f, 20f)));
         Duration = cfg.Bind(dash, "Duration", 0.12f,
             new ConfigDescription("How long one dash takes, in seconds. Lower = snappier.", new AcceptableValueRange<float>(0.03f, 1f)));
-        Charges = cfg.Bind(dash, "Charges", 2,
+        Charges = cfg.Bind(dash, "Charges", 1,
             new ConfigDescription("Bar segments once the dash is unlocked (before +1 Charge cards).", new AcceptableValueRange<int>(1, 6)));
-        RechargeSeconds = cfg.Bind(dash, "RechargeSeconds", 2f,
-            new ConfigDescription("Seconds to refill ONE segment.", new AcceptableValueRange<float>(0f, 30f)));
+        RechargeSeconds = cfg.Bind(dash, "RechargeSeconds", 12f,
+            new ConfigDescription("Seconds to refill ONE segment (Quick Recovery cards make it faster).", new AcceptableValueRange<float>(0f, 60f)));
         IFrameGrace = cfg.Bind(dash, "IFrameGraceSeconds", 0.08f,
             new ConfigDescription("Extra invulnerability after the dash ends (the dash itself is always invulnerable).", new AcceptableValueRange<float>(0f, 1f)));
         PassThroughEnemies = cfg.Bind(dash, "PassThroughEnemies", false,
@@ -119,13 +137,17 @@ internal static class ModConfig
             "Comma-separated words. Physics layers whose name contains one of them count as 'enemy' for PassThroughEnemies.");
         InputBuffer = cfg.Bind(dash, "InputBufferSeconds", 0.1f,
             new ConfigDescription("Pressing dash this long before the current dash ends queues the next one.", new AcceptableValueRange<float>(0f, 0.5f)));
+        HealthCostPercent = cfg.Bind(dash, "HealthCostPercent", 5f,
+            new ConfigDescription("Percent of max HP each dash costs until you pick the Legendary 'Ethereal Step' card. Never takes your last HP. 0 = free.",
+                new AcceptableValueRange<float>(0f, 50f)));
 
         const string controls = "Controls";
-        KeyboardBinding = cfg.Bind(controls, "KeyboardBinding", "<Keyboard>/leftShift",
-            "Input System control path for the keyboard dash key, e.g. <Keyboard>/leftShift, <Keyboard>/space, <Mouse>/rightButton.");
+        KeyboardBinding = cfg.Bind(controls, "KeyboardBinding", "<Keyboard>/space",
+            "Input System control path for the keyboard dash key, e.g. <Keyboard>/space, <Keyboard>/leftAlt, <Mouse>/rightButton. " +
+            "(Not Shift: the game uses it for the stats panel.)");
         GamepadBinding = cfg.Bind(controls, "GamepadBinding", "<Gamepad>/leftShoulder",
             "Input System control path for the gamepad dash button, e.g. <Gamepad>/leftShoulder, <Gamepad>/leftTrigger, <Gamepad>/buttonEast. Empty = no gamepad dash.");
-        LegacyKey = cfg.Bind(controls, "LegacyKey", "LeftShift",
+        LegacyKey = cfg.Bind(controls, "LegacyKey", "Space",
             "Only used if the game doesn't use Unity's new Input System: a UnityEngine.KeyCode name.");
         LegacyGamepadKey = cfg.Bind(controls, "LegacyGamepadKey", "JoystickButton4",
             "Only used if the game doesn't use Unity's new Input System: KeyCode for the gamepad button (JoystickButton4 = LB on Xbox pads).");
@@ -134,25 +156,34 @@ internal static class ModConfig
         BarAutoHide = cfg.Bind(bar, "AutoHide", true, "Fade the bar out when all charges are full.");
         BarHideDelay = cfg.Bind(bar, "HideDelaySeconds", 1f, "How long the bar stays visible after it is full again.");
         BarWidth = cfg.Bind(bar, "Width", 56f, "Total bar width in pixels at 1080p.");
-        BarHeight = cfg.Bind(bar, "Height", 7f, "Bar height in pixels at 1080p.");
+        BarHeight = cfg.Bind(bar, "Height", 8f, "Bar height in pixels at 1080p.");
         BarOffset = cfg.Bind(bar, "OffsetBelowFeet", 14f, "Pixels (at 1080p) between the wizard's feet and the bar.");
         BarScale = cfg.Bind(bar, "Scale", 1f, new ConfigDescription("Overall bar size multiplier.", new AcceptableValueRange<float>(0.25f, 4f)));
-        BarFillColor = cfg.Bind(bar, "FillColor", "#6FE3FFFF", "Colour of full segments (#RRGGBB or #RRGGBBAA).");
-        BarChargingColor = cfg.Bind(bar, "ChargingColor", "#3B86A8FF", "Colour of the segment that is refilling.");
-        BarBackColor = cfg.Bind(bar, "BackgroundColor", "#0C1220C8", "Background / frame colour.");
+        BarFillColor = cfg.Bind(bar, "FillColor", "#B57BFFFF", "Colour of full segments (#RRGGBB or #RRGGBBAA).");
+        BarChargingColor = cfg.Bind(bar, "ChargingColor", "#6A45B8FF", "Colour of the segment that is refilling.");
+        BarBackColor = cfg.Bind(bar, "BackgroundColor", "#150C26D0", "Background / frame colour.");
         BarFlashColor = cfg.Bind(bar, "FlashColor", "#FFFFFFFF", "Flash colour when a segment refills.");
         BarEmptyColor = cfg.Bind(bar, "EmptyPressColor", "#FF4A4AFF", "Flash colour when you press dash with no charges.");
         BarSortingOrder = cfg.Bind(bar, "SortingOrder", -50,
             "Canvas sorting order. Negative = drawn below the game's own UI (menus cover the bar). Raise it if the bar is hidden behind the HUD.");
+        BarRounded = cfg.Bind(bar, "Rounded", true, "Rounded (pill-shaped) frame and segments, like the game's own bars.");
+        BarSpriteName = cfg.Bind(bar, "GameSpriteName", "",
+            "Optional: name of one of the game's own UI sprites to draw the bar with (see section 15 of the discovery report). Empty = built-in rounded shape.");
 
         const string fx = "Effects";
         Afterimages = cfg.Bind(fx, "Afterimages", true, "Leave fading copies of the wizard along the dash path.");
-        AfterimageInterval = cfg.Bind(fx, "AfterimageInterval", 0.025f, "Seconds between afterimages during a dash.");
-        AfterimageLifetime = cfg.Bind(fx, "AfterimageLifetime", 0.25f, "Seconds an afterimage takes to fade.");
-        AfterimageColor = cfg.Bind(fx, "AfterimageColor", "#8FD8FF99", "Tint of the afterimages (alpha = starting opacity).");
-        DustPuff = cfg.Bind(fx, "DustPuff", true, "Small dust burst where the dash starts.");
+        AfterimageInterval = cfg.Bind(fx, "AfterimageInterval", 0.02f, "Seconds between afterimages during a dash.");
+        AfterimageLifetime = cfg.Bind(fx, "AfterimageLifetime", 0.35f, "Seconds an afterimage takes to fade.");
+        AfterimageColor = cfg.Bind(fx, "AfterimageColor", "#F0C8FFD8", "Afterimage colour when it appears (alpha = starting opacity). It glows from this...");
+        AfterimageFadeColor = cfg.Bind(fx, "AfterimageFadeColor", "#6A2CFF00", "...to this colour as it fades out.");
+        Sparkles = cfg.Bind(fx, "Sparkles", true, "Arcane sparkles left along the dash path, plus a small burst on landing.");
+        SparkleColor = cfg.Bind(fx, "SparkleColor", "#FFE0FFFF", "Sparkle colour when it appears.");
+        SparkleFadeColor = cfg.Bind(fx, "SparkleFadeColor", "#9B5CFFFF", "Sparkle colour as it twinkles out.");
+        SpeedStreaks = cfg.Bind(fx, "SpeedStreaks", true, "Thin light streaks behind the wizard while dashing.");
+        StreakColor = cfg.Bind(fx, "StreakColor", "#D2A8FFC0", "Speed streak colour.");
+        DustPuff = cfg.Bind(fx, "DustPuff", true, "Dust burst where the dash starts.");
         DustPuffOnLanding = cfg.Bind(fx, "DustPuffOnLanding", true, "Smaller dust burst where the dash ends.");
-        DustColor = cfg.Bind(fx, "DustColor", "#E6DCC8D0", "Dust colour.");
+        DustColor = cfg.Bind(fx, "DustColor", "#E2D6F2F0", "Dust colour.");
         BarFeedback = cfg.Bind(fx, "BarFeedback", true, "Segments flash when refilled; the bar shakes red on an empty press.");
         RemoteAfterimages = cfg.Bind(fx, "RemoteAfterimages", true, "Show afterimages when other (modded) players dash.");
 
@@ -178,6 +209,7 @@ internal static class ModConfig
         BlazingDashRarity = cfg.Bind(up, "BlazingDashRarity", "Legendary", "Rarity of 'Blazing Dash'.");
         BlazingDashDamage = cfg.Bind(up, "BlazingDashDamage", 15f, "Damage per tick of the Blazing Dash trail (applied once the game's damage hook is wired).");
         BlazingTrailSeconds = cfg.Bind(up, "BlazingTrailSeconds", 1.5f, "How long the Blazing Dash trail stays on the ground.");
+        EtherealStepRarity = cfg.Bind(up, "EtherealStepRarity", "Legendary", "Rarity of 'Ethereal Step' (dashes stop costing HP).");
 
         const string mp = "Multiplayer";
         RemoteIFrames = cfg.Bind(mp, "RemoteIFrames", true,
@@ -197,6 +229,12 @@ internal static class ModConfig
             "Extra damage methods to block during i-frames, as Type:Method separated by ';' (e.g. PlayerHealth:TakeDamage). Always applied.");
         AutoDamageHooks = cfg.Bind(hooks, "AutoDamageHooks", true,
             "Automatically hook methods named like TakeDamage/OnHit on the wizard's components for i-frames.");
+        HealthMembers = cfg.Bind(hooks, "HealthMembers",
+            "currentHealth,CurrentHealth,curHealth,health,Health,currentHp,CurrentHp,CurrentHP,hp,HP,Hp,_health,m_Health,_currentHealth,currentLife,CurrentLife",
+            "Numeric fields/properties (on the wizard's components) that hold CURRENT HP, used for the dash's HP cost. First match wins.");
+        MaxHealthMembers = cfg.Bind(hooks, "MaxHealthMembers",
+            "maxHealth,MaxHealth,maxHp,MaxHp,MaxHP,maxHP,_maxHealth,m_MaxHealth,maxLife,MaxLife,totalHealth,TotalHealth",
+            "Numeric fields/properties that hold MAX HP.");
 
         const string disc = "Discovery";
         DiscoveryEnabled = cfg.Bind(disc, "Enabled", true,
@@ -216,7 +254,7 @@ internal static class ModConfig
             "Give the dash at the start of every run instead of waiting for the level-up card. ON by default until the card hook is wired.");
         DebugHotkeys = cfg.Bind(dbg, "Hotkeys", true,
             "Debug hotkeys (hold the modifier, then press the key). Defaults: Left Ctrl + 1 = discovery report, + 2 = toggle dash, " +
-            "+ 3 = +1 Charge, + 4 = Quick Recovery, + 5 = Long Stride, + 6 = Blazing Dash.");
+            "+ 3 = +1 Charge, + 4 = Quick Recovery, + 5 = Long Stride, + 6 = Blazing Dash, + 7 = Ethereal Step.");
         const string keyHelp = " Input System control path, e.g. <Keyboard>/1, <Keyboard>/k, <Keyboard>/numpad1, <Keyboard>/f6.";
         HotkeyModifier = cfg.Bind(dbg, "HotkeyModifier", "<Keyboard>/leftCtrl",
             "Key that must be held for the debug hotkeys. Empty = no modifier." + keyHelp);
@@ -226,6 +264,30 @@ internal static class ModConfig
         KeyQuickRecovery = cfg.Bind(dbg, "KeyQuickRecovery", "<Keyboard>/4", "Apply the 'Quick Recovery' card." + keyHelp);
         KeyLongStride = cfg.Bind(dbg, "KeyLongStride", "<Keyboard>/5", "Apply the 'Long Stride' card." + keyHelp);
         KeyBlazingDash = cfg.Bind(dbg, "KeyBlazingDash", "<Keyboard>/6", "Apply the 'Blazing Dash' card." + keyHelp);
+        KeyEtherealStep = cfg.Bind(dbg, "KeyEtherealStep", "<Keyboard>/7", "Apply the 'Ethereal Step' card (dashes stop costing HP)." + keyHelp);
+        ConfigVersion = cfg.Bind("Internal", "ConfigVersion", 0, "Used by the mod to update old settings. Don't edit.");
+        Migrate(cfg);
+    }
+
+    /// <summary>
+    /// BepInEx keeps the values already saved in the .cfg file, so changing a default in code does nothing for
+    /// existing installs. When the shipped defaults change, the affected entries are reset once here.
+    /// </summary>
+    private static void Migrate(ConfigFile cfg)
+    {
+        if (ConfigVersion.Value >= CurrentConfigVersion) return;
+
+        // v2 (0.2.0): Space instead of Shift (game's stats panel), 1 charge / 12 s, violet rounded look.
+        ConfigEntryBase[] reset =
+        {
+            KeyboardBinding, LegacyKey, Charges, RechargeSeconds, BarHeight, BarFillColor, BarChargingColor, BarBackColor,
+            AfterimageInterval, AfterimageLifetime, AfterimageColor, DustColor,
+        };
+        foreach (var entry in reset) entry.BoxedValue = entry.DefaultValue;
+
+        ConfigVersion.Value = CurrentConfigVersion;
+        cfg.Save();
+        ModLog.Info($"Config updated to version {CurrentConfigVersion}: dash key Space, 1 charge, 12 s recharge, violet effects.");
     }
 
     public static string DebugKeyPath(Controls.DebugKey key) => key switch
@@ -235,7 +297,8 @@ internal static class ModConfig
         Controls.DebugKey.ExtraCharge => KeyExtraCharge.Value,
         Controls.DebugKey.QuickRecovery => KeyQuickRecovery.Value,
         Controls.DebugKey.LongStride => KeyLongStride.Value,
-        _ => KeyBlazingDash.Value,
+        Controls.DebugKey.BlazingDash => KeyBlazingDash.Value,
+        _ => KeyEtherealStep.Value,
     };
 
     /// <summary>"&lt;Keyboard&gt;/leftCtrl" → "Left Ctrl", for log messages.</summary>
@@ -256,6 +319,7 @@ internal static class ModConfig
         IFrameGraceSeconds = IFrameGrace.Value,
         QuickRecoveryPerStack = QuickRecoveryPerStack.Value,
         LongStridePerStack = LongStridePerStack.Value,
+        HealthCostFraction = HealthCostPercent.Value / 100f,
     };
 
     public static DashCardSettings CardSettings() => new()
@@ -272,6 +336,8 @@ internal static class ModConfig
         LongStridePerStack = LongStridePerStack.Value,
         BlazingDashRarity = BlazingDashRarity.Value,
         BlazingDashDamage = BlazingDashDamage.Value,
+        EtherealStepRarity = EtherealStepRarity.Value,
+        HealthCostFraction = HealthCostPercent.Value / 100f,
     };
 
     public static string[] SplitList(string value, char sep = ',')

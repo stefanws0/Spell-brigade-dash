@@ -207,6 +207,18 @@ internal static class DiscoveryReport
                 sb.AppendLine($"  {g.Key} x{g.Count()}: {string.Join(", ", g.Select(x => x.name).Take(12))}");
         });
 
+        Section("15. Game UI bars (to match the dash bar's style)");
+        Try("ui bars", () => DescribeUiBars(sb));
+
+        Section("16. Health on your wizard (for the dash's HP cost)");
+        Try("health", () =>
+        {
+            sb.AppendLine("In use: " + HealthBridge.Status);
+            if (local != null && !local.IsDestroyed)
+                foreach (var line in HealthBridge.DescribeCandidates(local))
+                    sb.AppendLine("  " + line);
+        });
+
         var text = sb.Length > MaxChars ? sb.ToString(0, MaxChars) + "\n...(truncated)" : sb.ToString();
         File.WriteAllText(Path, text);
         ModLog.Info($"Discovery report written to {Path} ({text.Length / 1024} KB).");
@@ -346,6 +358,36 @@ internal static class DiscoveryReport
             if (detailed > 400) break;
         }
     }
+
+    private static readonly Regex UiBarRx = new("(bar|hp|health|xp|exp|fill|mana|shield|progress|slider|level|stamina|energy)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static void DescribeUiBars(StringBuilder sb)
+    {
+        var count = 0;
+        foreach (var c in UnityFind.All(typeof(UnityEngine.UI.Image)))
+        {
+            var img = c.TryCast<UnityEngine.UI.Image>();
+            if (img == null) continue;
+            var sprite = img.sprite;
+            var spriteName = sprite != null ? sprite.name : "(none)";
+            if (!UiBarRx.IsMatch(img.gameObject.name) && !UiBarRx.IsMatch(spriteName)) continue;
+
+            var rt = img.GetComponent<RectTransform>();
+            var size = rt != null ? $"{rt.rect.width:0}x{rt.rect.height:0}" : "?";
+            var border = sprite != null ? $"border {sprite.border.x:0}/{sprite.border.y:0}/{sprite.border.z:0}/{sprite.border.w:0}" : "";
+            var col = img.color;
+            sb.AppendLine($"  {PathOf(img.gameObject)}");
+            sb.AppendLine($"      sprite '{spriteName}' {border}  type {img.type}  size {size}  colour #{ToHex(col)}");
+            if (++count >= 80) break;
+        }
+
+        if (count == 0) sb.AppendLine("  (no bar-like UI images found right now; press the report hotkey during a run)");
+        sb.AppendLine("Tip: put one of the sprite names above into Bar.GameSpriteName in the config to draw the dash bar with it.");
+    }
+
+    private static string ToHex(Color c)
+        => $"{(int)(c.r * 255):X2}{(int)(c.g * 255):X2}{(int)(c.b * 255):X2}{(int)(c.a * 255):X2}";
 
     private static IEnumerable<MethodInfo> SafeMethods(Type t)
     {

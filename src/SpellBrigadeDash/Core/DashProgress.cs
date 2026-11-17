@@ -19,6 +19,9 @@ public enum DashCardId
 
     /// <summary>The dash path leaves a damaging trail.</summary>
     BlazingDash,
+
+    /// <summary>The dash no longer costs health.</summary>
+    EtherealStep,
 }
 
 /// <summary>

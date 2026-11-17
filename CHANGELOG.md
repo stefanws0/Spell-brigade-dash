@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0 (after the first playtest)
+
+- **Dash key is now Space** (Shift also opened the game's stats panel). Rebindable as before.
+- **Balance:** the dash starts with 1 charge that refills in 12 s (was 2 charges / 2 s). Each dash also costs
+  5% of max HP (never your last point) until the new Legendary card **Ethereal Step** removes the cost (Ctrl + 7).
+- **Effects, now violet:** colour-shifting glowing afterimages, arcane sparkles along the dash plus a landing burst,
+  speed streaks, and a bigger dust burst lifted off the ground so it's actually visible.
+- **Blazing Dash fire redone:** upright, flickering two-layer flames with a hot core and rising embers, instead of
+  orange blobs. Sparkles, streaks and flame cores glow when the game ships an additive shader.
+- **Rounded bar** (pill-shaped segments) in violet, optionally drawn with one of the game's own sprites
+  (`Bar.GameSpriteName`).
+- Discovery report: new sections listing the game's UI bars (sprites and colours) and the health fields on your wizard.
+- Existing config files are updated automatically (`Internal.ConfigVersion`), so the new defaults apply.
+
 ## 0.1.0 (discovery build)
 
 - Shift / LB dash in the movement direction (or the facing direction when standing still), with collision against walls.

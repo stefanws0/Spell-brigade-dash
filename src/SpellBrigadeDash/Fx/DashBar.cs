@@ -12,7 +12,7 @@ using Object = UnityEngine.Object;
 /// The segmented dash-energy bar under your wizard. It's a screen-space UI canvas whose position
 /// follows the wizard's feet every frame, which keeps it pixel-crisp in both 2D and 3D games.
 ///
-///   [███][██░][   ]   full / refilling / empty
+///   ( ███ )( ██░ )(     )   full / refilling / empty, rounded like the game's own bars
 ///
 /// Feedback: a segment flashes when it refills; the bar shakes and flashes red on an empty press;
 /// it fades out <see cref="ModConfig.BarHideDelay"/> seconds after all charges are full.
@@ -31,7 +31,10 @@ internal sealed class DashBar
     private float _lastActivity = -999f;
     private float _emptyPressAt = -999f;
 
-    private Color _fill, _charging, _back, _flash, _empty;
+    private Color _fill, _charging, _back, _segmentBack, _flash, _empty;
+    private Sprite? _gameSprite;
+    private int _segRadius = -1;
+    private int _frameRadius = -1;
 
     public void OnDash(float now) => _lastActivity = now;
 
@@ -92,11 +95,13 @@ internal sealed class DashBar
         var s = Screen.height / 1080f * ModConfig.BarScale.Value;
         var width = ModConfig.BarWidth.Value * s;
         var height = ModConfig.BarHeight.Value * s;
-        var pad = Math.Max(1f, 1.5f * s);
-        var gap = Math.Max(1f, 2f * s);
+        var rounded = _gameSprite != null || ModConfig.BarRounded.Value;
+        var pad = Math.Max(1f, (rounded ? 2f : 1.5f) * s);
+        var gap = Math.Max(1f, (rounded ? 3f : 2f) * s);
         var n = Math.Max(1, charges.Max);
         var segW = (width - gap * (n - 1)) / n;
 
+        UpdateShapes(height, height + pad * 2f);
         _bar!.sizeDelta = new Vector2(width + pad * 2f, height + pad * 2f);
 
         var shake = 0f;
@@ -121,6 +126,7 @@ internal sealed class DashBar
             Place(seg.Back, x, pad, segW, height);
             var fill = charges.SegmentFill(i);
             Place(seg.Fill, x, pad, Math.Max(0f, segW * fill), height);
+            seg.Fill.gameObject.SetActive(fill > 0.02f);
 
             var color = fill >= 1f ? _fill : _charging;
             var sinceFlash = now - seg.FlashAt;
@@ -143,13 +149,15 @@ internal sealed class DashBar
         if (_canvasGo != null) return true;
         try
         {
-            _fill = FxAssets.ParseColor(ModConfig.BarFillColor.Value, new Color(0.44f, 0.89f, 1f));
-            _charging = FxAssets.ParseColor(ModConfig.BarChargingColor.Value, new Color(0.23f, 0.53f, 0.66f));
-            _back = FxAssets.ParseColor(ModConfig.BarBackColor.Value, new Color(0.05f, 0.07f, 0.12f, 0.78f));
+            _fill = FxAssets.ParseColor(ModConfig.BarFillColor.Value, new Color(0.71f, 0.48f, 1f));
+            _charging = FxAssets.ParseColor(ModConfig.BarChargingColor.Value, new Color(0.42f, 0.27f, 0.72f));
+            _back = FxAssets.ParseColor(ModConfig.BarBackColor.Value, new Color(0.08f, 0.05f, 0.15f, 0.82f));
+            _segmentBack = new Color(_back.r * 0.5f + 0.1f, _back.g * 0.5f + 0.07f, _back.b * 0.5f + 0.16f, 0.9f);
             _flash = FxAssets.ParseColor(ModConfig.BarFlashColor.Value, Color.white);
             _empty = FxAssets.ParseColor(ModConfig.BarEmptyColor.Value, new Color(1f, 0.29f, 0.29f));
 
             ModLog.Step("bar: building canvas");
+            _gameSprite = FindGameSprite();
             _canvasGo = new GameObject("SpellBrigadeDash_Bar");
             Object.DontDestroyOnLoad(_canvasGo);
             var canvas = _canvasGo.AddComponent<Canvas>();
@@ -186,15 +194,86 @@ internal sealed class DashBar
         }
 
         _segments.Clear();
-        var backColor = new Color(_back.r * 0.5f + 0.08f, _back.g * 0.5f + 0.08f, _back.b * 0.5f + 0.1f, 0.9f);
         for (var i = 0; i < count; i++)
         {
             var back = NewUi($"Segment{i}", _bar!);
-            AddImage(back, backColor);
+            var backImg = AddImage(back, _segmentBack);
             var fill = NewUi($"Fill{i}", _bar!);
             var img = AddImage(fill, _fill);
-            _segments.Add(new Segment(back.GetComponent<RectTransform>(), fill.GetComponent<RectTransform>(), img));
+            _segments.Add(new Segment(back.GetComponent<RectTransform>(), backImg, fill.GetComponent<RectTransform>(), img));
         }
+
+        _segRadius = -1; // new images need their shape
+        _frameRadius = -1;
+    }
+
+    /// <summary>
+    /// Gives the frame and segments their rounded shape. The built-in pill is regenerated for the bar's
+    /// actual pixel height, so the ends stay perfect half-circles at every resolution and bar size.
+    /// </summary>
+    private void UpdateShapes(float segmentHeight, float frameHeight)
+    {
+        if (_gameSprite != null)
+        {
+            if (_segRadius == 0) return;
+            SetShape(_frame!, _gameSprite);
+            foreach (var seg in _segments)
+            {
+                SetShape(seg.BackImage, _gameSprite);
+                SetShape(seg.FillImage, _gameSprite);
+            }
+
+            _segRadius = 0;
+            return;
+        }
+
+        if (!ModConfig.BarRounded.Value) return;
+
+        var segR = Math.Max(1, (int)Math.Round(segmentHeight / 2f));
+        var frameR = Math.Max(1, (int)Math.Round(frameHeight / 2f));
+        if (segR == _segRadius && frameR == _frameRadius) return;
+        _segRadius = segR;
+        _frameRadius = frameR;
+
+        SetShape(_frame!, FxAssets.RoundedUi(frameR));
+        var segSprite = FxAssets.RoundedUi(segR);
+        foreach (var seg in _segments)
+        {
+            SetShape(seg.BackImage, segSprite);
+            SetShape(seg.FillImage, segSprite);
+        }
+    }
+
+    private static void SetShape(Image img, Sprite? shape)
+    {
+        if (shape == null) return;
+        img.sprite = shape;
+        var b = shape.border;
+        // 9-sliced: the round ends keep their shape at any width
+        img.type = b.x > 0f || b.y > 0f || b.z > 0f || b.w > 0f ? Image.Type.Sliced : Image.Type.Simple;
+    }
+
+    /// <summary>One of the game's own UI sprites, if configured in Bar.GameSpriteName.</summary>
+    private static Sprite? FindGameSprite()
+    {
+        var name = ModConfig.BarSpriteName.Value.Trim();
+        if (name.Length == 0) return null;
+        try
+        {
+            foreach (var sprite in Resources.FindObjectsOfTypeAll<Sprite>())
+                if (sprite != null && string.Equals(sprite.name, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    ModLog.Info($"Dash bar uses the game's sprite '{sprite.name}'.");
+                    return sprite;
+                }
+        }
+        catch (Exception ex)
+        {
+            ModLog.Warn($"Looking up Bar.GameSpriteName failed: {ex.Message}");
+        }
+
+        ModLog.WarnOnce("bar-sprite", $"Bar.GameSpriteName '{name}' not found; using the built-in rounded shape.");
+        return null;
     }
 
     private static GameObject NewUi(string name, Transform parent)
@@ -224,14 +303,16 @@ internal sealed class DashBar
 
     private sealed class Segment
     {
-        public Segment(RectTransform back, RectTransform fill, Image fillImage)
+        public Segment(RectTransform back, Image backImage, RectTransform fill, Image fillImage)
         {
             Back = back;
+            BackImage = backImage;
             Fill = fill;
             FillImage = fillImage;
         }
 
         public RectTransform Back { get; }
+        public Image BackImage { get; }
         public RectTransform Fill { get; }
         public Image FillImage { get; }
         public float FlashAt { get; set; } = -999f;

@@ -13,6 +13,7 @@ internal enum DebugKey
     QuickRecovery,
     LongStride,
     BlazingDash,
+    EtherealStep,
 }
 
 internal interface IInputBackend
