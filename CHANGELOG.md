@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.2
+
+- **Blazing Dash burns with the game's own fire.** The trail is now made of the fire the game shows on a burning wizard
+  (`FireVisualizer` / VFX Graph `Effect_Fire`), lit and put out with the game's own `PlayEffect` / `StopEffect`, so it
+  scales in, burns and dies out like in-game fire. The fires are pooled clones (no Harmony patches). New settings:
+  `Effects.GameFireTrail` (off = the old sprite flames), `Effects.GameFireScale`, `Effects.GameFireTheme`
+  (`Fire` / `FireDouble`).
+- Blazing Dash also plays the game's fire-spell sound (`Sound.BlazingFmodEvent`,
+  `event:/Elements/Fire/SFX_Element_Fire_Cast`).
+- **Fixed: the dash's HP cost was never applied.** Two bugs: `HealthContainer.CurrentHealth` is read-only in this game
+  (it reads the network-synced `SyncedCurrentHealth`) and the health finder skipped read-only members; and the new HP
+  was boxed as a `double` for a `float` member, which reflection refuses. It now writes `SyncedCurrentHealth` with the
+  member's exact type and logs the first cost with the value the game reads back.
+
 ## 0.3.1
 
 - **Fixed the crash at level-up.** It came from the level-up method trace: in this game some methods have no

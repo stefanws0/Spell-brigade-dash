@@ -16,6 +16,7 @@ namespace UnityEngine
         public int GetInstanceID() => 0;
         public static void Destroy(Object obj) { }
         public static void DontDestroyOnLoad(Object target) { }
+        public static T Instantiate<T>(T original, Transform parent) where T : Object => original;
         public static Il2CppReferenceArray<Object> FindObjectsOfType(Il2CppSystem.Type type) => null;
         public static bool operator ==(Object x, Object y) => ReferenceEquals(x, y);
         public static bool operator !=(Object x, Object y) => !ReferenceEquals(x, y);

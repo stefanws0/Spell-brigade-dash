@@ -27,6 +27,7 @@ internal static class HealthBridge
     private static readonly Dictionary<long, Accessor?> Cache = new();
     private static readonly Dictionary<long, float> RetryAt = new();
     private static bool _candidatesLogged;
+    private static bool _firstCostLogged;
 
     public static string Status { get; private set; } = "not used yet";
 
@@ -47,6 +48,13 @@ internal static class HealthBridge
             var target = current - cost;
             if (acc.IsInteger) target = Math.Max(1f, (float)Math.Floor(target));
             acc.WriteCurrent(target);
+            if (!_firstCostLogged)
+            {
+                _firstCostLogged = true;
+                ModLog.Info($"Dash HP cost: first dash took {current - target:0.#} HP ({current:0.#} -> {target:0.#} written); " +
+                            $"the game now reads {acc.ReadCurrent():0.#} / {acc.ReadMax():0.#}.");
+            }
+
             return current - target;
         }
         catch (Exception ex)
@@ -94,7 +102,9 @@ internal static class HealthBridge
         Accessor? found = null;
         foreach (var name in currentNames)
         {
-            foreach (var cur in members.Where(m => m.member.Name == name && CanWrite(m.member)))
+            // HealthContainer.CurrentHealth is read-only (it reads the NetworkVariable SyncedCurrentHealth), so a
+            // member also qualifies when its "Synced" twin can be written.
+            foreach (var cur in members.Where(m => m.member.Name == name && (CanWrite(m.member) || HasWritableSynced(m.view.Wrapped!, m.member))))
             {
                 // prefer max HP on the same component, else anywhere on the wizard
                 var maxCandidates = maxNames.SelectMany(n => members.Where(m => m.view == cur.view && m.member.Name == n))
@@ -188,6 +198,25 @@ internal static class HealthBridge
 
     private static bool CanWrite(MemberInfo m) => m is FieldInfo || (m is PropertyInfo p && p.CanWrite);
 
+    /// <summary>The game's network-synced copy of a member, e.g. SyncedCurrentHealth (a NetworkVariable) for CurrentHealth.</summary>
+    private static PropertyInfo? SyncedValueProperty(object target, MemberInfo member, out object? variable)
+    {
+        variable = target.GetType().GetProperty("Synced" + member.Name, Flags)?.GetValue(target);
+        return variable?.GetType().GetProperty("Value", BindingFlags.Instance | BindingFlags.Public);
+    }
+
+    private static bool HasWritableSynced(object target, MemberInfo member)
+    {
+        try
+        {
+            return SyncedValueProperty(target, member, out _)?.CanWrite == true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static object? Read(MemberInfo m, object target) => m switch
     {
         PropertyInfo p => p.GetValue(target),
@@ -220,31 +249,39 @@ internal static class HealthBridge
         public void WriteCurrent(float value)
         {
             var type = _cur is PropertyInfo p ? p.PropertyType : ((FieldInfo)_cur).FieldType;
-            object boxed = type == typeof(int) ? (int)value : type == typeof(double) ? (double)value : value;
+            var boxed = NumberBox.As(value, type);
 
             // The game keeps a network-synced copy (HealthContainer.SyncedCurrentHealth, a NetworkVariable).
-            // Write that first, so the health bar updates and other players see the new HP.
-            WriteSynced(boxed);
+            // Write that first, so the health bar updates and other players see the new HP. In The Spell Brigade
+            // CurrentHealth itself is read-only and reads that copy, so the synced write is the real one.
+            var synced = WriteSynced(boxed);
 
-            if (_cur is PropertyInfo prop) prop.SetValue(_curTarget, boxed);
-            else ((FieldInfo)_cur).SetValue(_curTarget, boxed);
+            if (CanWrite(_cur))
+            {
+                if (_cur is PropertyInfo prop) prop.SetValue(_curTarget, boxed);
+                else ((FieldInfo)_cur).SetValue(_curTarget, boxed);
+            }
+            else if (!synced)
+            {
+                throw new InvalidOperationException($"{_cur.Name} is read-only and Synced{_cur.Name} couldn't be written");
+            }
         }
 
-        private void WriteSynced(object boxed)
+        private bool WriteSynced(object boxed)
         {
-            if (_syncedBroken) return;
+            if (_syncedBroken) return false;
             try
             {
-                var syncedProp = _curTarget.GetType().GetProperty("Synced" + _cur.Name, Flags);
-                var variable = syncedProp?.GetValue(_curTarget);
-                var valueProp = variable?.GetType().GetProperty("Value", BindingFlags.Instance | BindingFlags.Public);
-                if (valueProp == null || !valueProp.CanWrite) return;
+                var valueProp = SyncedValueProperty(_curTarget, _cur, out var variable);
+                if (valueProp == null || !valueProp.CanWrite) return false;
                 valueProp.SetValue(variable, boxed);
+                return true;
             }
             catch (Exception ex)
             {
-                _syncedBroken = true; // e.g. only the server may write it; the local value is still set
-                ModLog.Warn($"Dash HP cost: couldn't write Synced{_cur.Name} ({(ex.InnerException ?? ex).Message}); only the local value is changed.");
+                _syncedBroken = true; // e.g. only the server may write it
+                ModLog.Warn($"Dash HP cost: couldn't write Synced{_cur.Name} ({(ex.InnerException ?? ex).Message}).");
+                return false;
             }
         }
 

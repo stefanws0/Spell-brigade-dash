@@ -20,7 +20,8 @@ using UnityEngine;
 /// </summary>
 internal sealed class DashSystem
 {
-    private const float FlameSpacingFactor = 0.22f; // distance between flames, relative to the wizard's size
+    private const float FlameSpacingFactor = 0.22f; // distance between sprite flames, relative to the wizard's size
+    private const float GameFlameSpacingFactor = 0.42f; // the game's fire is fuller, so fewer of them along the path
     private const float SparkleSpacingFactor = 0.16f; // distance between sparkles, relative to the wizard's size
     private const float StreakInterval = 0.018f;
 
@@ -28,6 +29,7 @@ internal sealed class DashSystem
     private readonly DashProgress _progress = new();
     private readonly DashCharges _charges = new(0, 2f);
     private readonly FxManager _fx = new();
+    private readonly GameFireTrail _gameFire = new();
     private readonly DashBar _bar = new();
     private readonly RemoteDashDetector _remote = new();
     private readonly List<RemoteEmitter> _remoteEmitters = new();
@@ -126,6 +128,7 @@ internal sealed class DashSystem
 
             ModLog.StepOnce("fx", "first frame: effects + bar");
             _fx.Update(dt);
+            _gameFire.Update(now);
             var allowed = p != null && Time.timeScale > 0f && !Locator.IsDead(p);
             _bar.Update(p, _charges, allowed, now, Time.unscaledDeltaTime);
             ModLog.StepOnce("frame-ok", "first frame completed");
@@ -188,6 +191,7 @@ internal sealed class DashSystem
         _active = null;
         _bufferedUntil = -1f;
         _fx.Clear();
+        _gameFire.Clear();
         _remote.Clear();
         _remoteEmitters.Clear();
         _progress.Reset();
@@ -252,7 +256,7 @@ internal sealed class DashSystem
             Remaining = distance,
             Speed = distance / duration,
             MaxTime = duration * 2f + 0.05f,
-            FlameSpacing = Math.Max(0.05f, p.VisualSize * FlameSpacingFactor),
+            FlameSpacing = Math.Max(0.05f, p.VisualSize * (_gameFire.Usable ? GameFlameSpacingFactor : FlameSpacingFactor)),
             SparkleSpacing = Math.Max(0.05f, p.VisualSize * SparkleSpacingFactor),
         };
         _localDashes++;
@@ -270,6 +274,7 @@ internal sealed class DashSystem
         if (ModConfig.Afterimages.Value) _fx.SpawnAfterimage(p, _ghostStart, _ghostEnd, ModConfig.AfterimageLifetime.Value);
         _active.NextGhost = ModConfig.AfterimageInterval.Value;
         Sound.Play(_fx.Root, p.Feet, now);
+        if (DashTuning.Blazing(_progress) && ModConfig.SoundEnabled.Value) FmodSound.PlayEvent(ModConfig.BlazingFmodEvent.Value, p.Feet);
         GameFx.TeleportBurst(p);
         GameFx.SpeedLines(p, _fx.Root, true);
     }
@@ -323,10 +328,12 @@ internal sealed class DashSystem
         {
             ModLog.InfoOnce("blazing-pending", "Blazing Dash: trail visuals active; enemy damage is wired after the discovery report.");
             var feet = p.Feet;
+            var life = ModConfig.BlazingTrailSeconds.Value;
             while (a.Travelled >= a.NextFlameAt)
             {
                 var back = a.Travelled - a.NextFlameAt;
-                _fx.SpawnFlame(p, feet - a.Dir * back, ModConfig.BlazingTrailSeconds.Value);
+                var spot = feet - a.Dir * back;
+                if (!_gameFire.TrySpawn(p, spot, _fx.Root.transform, life, now)) _fx.SpawnFlame(p, spot, life);
                 a.NextFlameAt += a.FlameSpacing;
             }
         }
@@ -508,6 +515,7 @@ internal sealed class DashSystem
             sb.AppendLine($"  {c.Title,-16} {c.Rarity,-10} max {c.MaxStacks}  taken {_progress.Stacks(c.Id)}  offerable now: {DashCards.IsAvailable(c, _progress)}");
         sb.AppendLine($"Dash sound: {Sound.Status}");
         sb.AppendLine($"Game effects: {GameFx.Status}");
+        sb.AppendLine($"Blazing Dash trail: {_gameFire.Status}");
         sb.AppendLine($"Wall checks: {DashMotor.Describe()}");
         sb.AppendLine($"Dash HP cost: {DashTuning.HealthCostFraction(_stats, _progress) * 100f:0.#}% of max HP; health: {HealthBridge.Status}");
     }

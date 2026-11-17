@@ -57,23 +57,7 @@ internal static class FmodSound
 
         try
         {
-            // Preferred: RuntimeManager.PlayOneShot(string path, Vector3 position)
-            var playOneShot = _runtimeManager!.GetMethods(Static).FirstOrDefault(m =>
-                m.Name == "PlayOneShot" && m.GetParameters().Length == 2 &&
-                m.GetParameters()[0].ParameterType == typeof(string) && m.GetParameters()[1].ParameterType == typeof(Vector3));
-            if (playOneShot != null)
-            {
-                playOneShot.Invoke(null, new object[] { _eventPath!, position });
-                return;
-            }
-
-            // Fallback: instance = RuntimeManager.CreateInstance(path); instance.start(); instance.release();
-            var create = _runtimeManager.GetMethods(Static).FirstOrDefault(m =>
-                m.Name == "CreateInstance" && m.GetParameters().Length == 1 && m.GetParameters()[0].ParameterType == typeof(string));
-            if (create == null) throw new MissingMethodException("RuntimeManager has neither PlayOneShot(string, Vector3) nor CreateInstance(string)");
-            var instance = create.Invoke(null, new object[] { _eventPath! });
-            instance?.GetType().GetMethod("start", Instance, null, Type.EmptyTypes, null)?.Invoke(instance, null);
-            instance?.GetType().GetMethod("release", Instance, null, Type.EmptyTypes, null)?.Invoke(instance, null);
+            PlayPath(_eventPath!, position);
         }
         catch (Exception ex)
         {
@@ -81,6 +65,45 @@ internal static class FmodSound
             Status = $"playing '{_eventPath}' failed: {(ex.InnerException ?? ex).Message}";
             ModLog.Warn("Dash sound: " + Status);
         }
+    }
+
+    /// <summary>Play any FMOD event by path (e.g. the Blazing Dash fire sound). A path that fails once is skipped from then on.</summary>
+    public static void PlayEvent(string path, Vector3 position)
+    {
+        path = path.Trim();
+        if (path.Length == 0 || FailedPaths.Contains(path) || !Available) return;
+        try
+        {
+            PlayPath(path, position);
+        }
+        catch (Exception ex)
+        {
+            FailedPaths.Add(path);
+            ModLog.Warn($"FMOD event '{path}' failed ({(ex.InnerException ?? ex).Message}); it won't be played again this session.");
+        }
+    }
+
+    private static readonly HashSet<string> FailedPaths = new(StringComparer.Ordinal);
+
+    private static void PlayPath(string path, Vector3 position)
+    {
+        // Preferred: RuntimeManager.PlayOneShot(string path, Vector3 position)
+        var playOneShot = _runtimeManager!.GetMethods(Static).FirstOrDefault(m =>
+            m.Name == "PlayOneShot" && m.GetParameters().Length == 2 &&
+            m.GetParameters()[0].ParameterType == typeof(string) && m.GetParameters()[1].ParameterType == typeof(Vector3));
+        if (playOneShot != null)
+        {
+            playOneShot.Invoke(null, new object[] { path, position });
+            return;
+        }
+
+        // Fallback: instance = RuntimeManager.CreateInstance(path); instance.start(); instance.release();
+        var create = _runtimeManager.GetMethods(Static).FirstOrDefault(m =>
+            m.Name == "CreateInstance" && m.GetParameters().Length == 1 && m.GetParameters()[0].ParameterType == typeof(string));
+        if (create == null) throw new MissingMethodException("RuntimeManager has neither PlayOneShot(string, Vector3) nor CreateInstance(string)");
+        var instance = create.Invoke(null, new object[] { path });
+        instance?.GetType().GetMethod("start", Instance, null, Type.EmptyTypes, null)?.Invoke(instance, null);
+        instance?.GetType().GetMethod("release", Instance, null, Type.EmptyTypes, null)?.Invoke(instance, null);
     }
 
     private static void Pick()

@@ -62,6 +62,9 @@ internal static class ModConfig
     public static ConfigEntry<bool> RemoteAfterimages = null!;
     public static ConfigEntry<bool> GameTeleportBurst = null!;
     public static ConfigEntry<bool> GameSpeedLines = null!;
+    public static ConfigEntry<bool> GameFireTrail = null!;
+    public static ConfigEntry<float> GameFireScale = null!;
+    public static ConfigEntry<string> GameFireTheme = null!;
 
     // ---- Sound ----
     public static ConfigEntry<bool> SoundEnabled = null!;
@@ -69,6 +72,7 @@ internal static class ModConfig
     public static ConfigEntry<string> SoundClipHints = null!;
     public static ConfigEntry<float> SoundVolume = null!;
     public static ConfigEntry<string> SoundFmodEvent = null!;
+    public static ConfigEntry<string> BlazingFmodEvent = null!;
 
     // ---- Upgrades ----
     public static ConfigEntry<string> UnlockRarity = null!;
@@ -197,6 +201,12 @@ internal static class ModConfig
         RemoteAfterimages = cfg.Bind(fx, "RemoteAfterimages", true, "Show afterimages when other (modded) players dash.");
         GameTeleportBurst = cfg.Bind(fx, "GameTeleportBurst", true, "Also play the game's own teleport sparkle burst when you dash.");
         GameSpeedLines = cfg.Bind(fx, "GameSpeedLines", true, "Also show the game's own fast-running speed lines during the dash.");
+        GameFireTrail = cfg.Bind(fx, "GameFireTrail", true,
+            "Blazing Dash leaves the game's own fire (the burning effect wizards get) along the path. Off = the mod's own sprite flames.");
+        GameFireScale = cfg.Bind(fx, "GameFireScale", 0.9f,
+            new ConfigDescription("Size of each game fire in the Blazing Dash trail (1 = as big as on a burning wizard).", new AcceptableValueRange<float>(0.2f, 3f)));
+        GameFireTheme = cfg.Bind(fx, "GameFireTheme", "Fire",
+            "Which of the game's fire looks the trail uses: Fire, or FireDouble (the game's stronger double-fire look).");
 
         const string sound = "Sound";
         SoundEnabled = cfg.Bind(sound, "Enabled", true, "Play a sound on dash, reusing one of the game's own sounds.");
@@ -207,6 +217,8 @@ internal static class ModConfig
         SoundVolume = cfg.Bind(sound, "Volume", 0.7f, new ConfigDescription("Dash sound volume (Unity audio only; FMOD events use the game's volume).", new AcceptableValueRange<float>(0f, 1f)));
         SoundFmodEvent = cfg.Bind(sound, "FmodEvent", "auto",
             "The game plays sound through FMOD. 'auto' = pick an event whose path matches ClipNameHints. Or an exact path like event:/... (section 17 of the discovery report lists them all).");
+        BlazingFmodEvent = cfg.Bind(sound, "BlazingFmodEvent", "event:/Elements/Fire/SFX_Element_Fire_Cast",
+            "Extra FMOD event played when a Blazing Dash lights its trail (the game's fire-spell cast sound). Empty = none.");
 
         const string up = "Upgrades";
         UnlockRarity = cfg.Bind(up, "DashUnlockRarity", "Epic", "Rarity of the card that unlocks the dash (the game's rarity name).");
