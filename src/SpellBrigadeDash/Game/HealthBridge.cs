@@ -25,6 +25,8 @@ internal static class HealthBridge
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static readonly Dictionary<long, Accessor?> Cache = new();
+    private static readonly Dictionary<long, float> RetryAt = new();
+    private static bool _candidatesLogged;
 
     public static string Status { get; private set; } = "not used yet";
 
@@ -79,7 +81,11 @@ internal static class HealthBridge
 
     private static Accessor? Find(PlayerInfo p)
     {
-        if (Cache.TryGetValue(p.Id, out var cached)) return cached;
+        // Found once = keep it. Not found = try again a few seconds later (health initialises after the wizard spawns).
+        if (Cache.TryGetValue(p.Id, out var cached) && cached != null) return cached;
+        var now = Time.unscaledTime;
+        if (RetryAt.TryGetValue(p.Id, out var retry) && now < retry) return null;
+        RetryAt[p.Id] = now + 5f;
 
         var currentNames = ModConfig.SplitList(ModConfig.HealthMembers.Value);
         var maxNames = ModConfig.SplitList(ModConfig.MaxHealthMembers.Value);
@@ -111,8 +117,13 @@ internal static class HealthBridge
 
         if (found == null)
         {
-            Status = "no health field found on the wizard; dash HP cost is not applied (see the discovery report)";
+            Status = "no health field found on the wizard yet; dash HP cost not applied (retrying; see the discovery report)";
             ModLog.WarnOnce("health-missing", "Dash HP cost: " + Status);
+            if (!_candidatesLogged)
+            {
+                _candidatesLogged = true;
+                ModLog.Info("Health-like members on the wizard: " + string.Join("; ", DescribeCandidates(p).Take(30)));
+            }
         }
         else
         {

@@ -120,7 +120,7 @@ internal static class ModConfig
 
     // ---- Internal ----
     /// <summary>Bumped when shipped defaults change; older config files get those entries reset (see Migrate).</summary>
-    private const int CurrentConfigVersion = 4;
+    private const int CurrentConfigVersion = 5;
     public static ConfigEntry<int> ConfigVersion = null!;
 
     public static void Init(ConfigFile cfg)
@@ -238,23 +238,23 @@ internal static class ModConfig
             "Bool fields/properties checked (on any component of the wizard) to tell YOUR wizard apart from other players.");
         DeadMembers = cfg.Bind(hooks, "DeadMembers", "isGhost,IsGhost,IsDead,isDead,Dead,dead,IsDowned,isDowned,Downed,downed,IsKnockedOut,!IsAlive,!isAlive",
             "Bool members that mean 'can't dash right now'. Prefix with ! to invert (e.g. !IsAlive).");
-        DamageMethods = cfg.Bind(hooks, "DamageMethods", "",
+        DamageMethods = cfg.Bind(hooks, "DamageMethods", "PlayerHealthContainer:TakeDamage;PlayerHealthContainer:RemoveHealthOnOwner",
             "Extra damage methods to block during i-frames, as Type:Method separated by ';' (e.g. PlayerHealth:TakeDamage). Always applied.");
-        AutoDamageHooks = cfg.Bind(hooks, "AutoDamageHooks", true,
+        AutoDamageHooks = cfg.Bind(hooks, "AutoDamageHooks", false,
             "Automatically hook methods named like TakeDamage/OnHit on the wizard's components for i-frames.");
         HealthMembers = cfg.Bind(hooks, "HealthMembers",
-            "currentHealth,CurrentHealth,curHealth,health,Health,currentHp,CurrentHp,CurrentHP,hp,HP,Hp,_health,m_Health,_currentHealth,currentLife,CurrentLife",
+            "CurrentHealth,currentHealth,curHealth,health,Health,currentHp,CurrentHp,CurrentHP,hp,HP,Hp,_health,m_Health,_currentHealth,currentLife,CurrentLife",
             "Numeric fields/properties (on the wizard's components) that hold CURRENT HP, used for the dash's HP cost. First match wins.");
         MaxHealthMembers = cfg.Bind(hooks, "MaxHealthMembers",
-            "maxHealth,MaxHealth,maxHp,MaxHp,MaxHP,maxHP,_maxHealth,m_MaxHealth,maxLife,MaxLife,totalHealth,TotalHealth",
+            "MaxHealth,maxHealth,maxHp,MaxHp,MaxHP,maxHP,_maxHealth,m_MaxHealth,maxLife,MaxLife,totalHealth,TotalHealth",
             "Numeric fields/properties that hold MAX HP.");
 
         const string disc = "Discovery";
         DiscoveryEnabled = cfg.Bind(disc, "Enabled", true,
             "Write BepInEx/SpellBrigadeDash-discovery.txt (game classes, damage methods, upgrade types...) when a run starts and when you press the report hotkey (Left Ctrl + 1 by default). Send this file to the mod author.");
-        TraceLevelUpMethods = cfg.Bind(disc, "TraceLevelUpMethods", true,
-            "Logs calls to the game's level-up shop methods (a few seconds into each run) so the dash cards can be wired into the shop. " +
-            "Small crash risk: if the game crashes, BepInEx/SpellBrigadeDash.log names the method; then set this to false."); 
+        TraceLevelUpMethods = cfg.Bind(disc, "TraceLevelUpMethods", false,
+            "Developer tool, OFF: patches game methods to log when they run. It crashed the game at level-up in 0.3.0 (merged method bodies), " +
+            "so it now skips risky methods, but leave it off unless asked."); 
         TraceMaxMethods = cfg.Bind(disc, "TraceMaxMethods", 40, "Maximum number of game methods traced (level-up shop classes first).");
 
         const string dbg = "Debug";
@@ -305,6 +305,11 @@ internal static class ModConfig
 
         // v4 (0.3.0): shop trace on for the next test (approved), to wire the dash cards into the level-up shop.
         if (ConfigVersion.Value < 4) reset.Add(TraceLevelUpMethods);
+
+        // v5 (0.3.1): the trace crashed at level-up -> off; damage hooks pinned to the two proven player methods;
+        // health members CurrentHealth/MaxHealth first.
+        if (ConfigVersion.Value < 5)
+            reset.AddRange(new ConfigEntryBase[] { TraceLevelUpMethods, DamageMethods, AutoDamageHooks, HealthMembers, MaxHealthMembers });
 
         foreach (var entry in reset) entry.BoxedValue = entry.DefaultValue;
 

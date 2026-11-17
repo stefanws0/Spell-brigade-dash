@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.1
+
+- **Fixed the crash at level-up.** It came from the level-up method trace: in this game some methods have no
+  machine code of their own (interfaces) and identical small methods share one body, so patching them detoured
+  address 0 or several unrelated methods at once. The trace is now off by default, and if switched on it skips
+  methods without their own code (checked through the method's native pointer).
+- Damage hooks are pinned to `PlayerHealthContainer.TakeDamage` and `PlayerHealthContainer.RemoveHealthOnOwner`
+  (the base-class hooks also ran on every enemy hit).
+- The dash's HP cost retries finding the health fields (health initialises after the wizard spawns) and logs what it
+  saw if it can't.
+- Config migrates to v5 for these defaults.
+
 ## 0.3.0 (wired to the game, from the first discovery report)
 
 - **The dash stops at walls and the map edge.** This build has no `Physics.SphereCastAll` and returns nonsense for the

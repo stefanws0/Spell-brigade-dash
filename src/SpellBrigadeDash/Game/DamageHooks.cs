@@ -127,9 +127,16 @@ internal static class DamageHooks
             return;
         }
 
+        var native = NativeCode.Pointer(m);
+        if (native == IntPtr.Zero)
+        {
+            FailedNames.Add(label + "  [skipped: no native code]");
+            return;
+        }
+
         try
         {
-            ModLog.Step($"damage hook patch: {label}");
+            ModLog.Step($"damage hook patch: {label} (native 0x{native.ToInt64():X})");
             Plugin.Harmony.Patch(m, prefix: new HarmonyMethod(typeof(DamageHooks).GetMethod(prefix, BindingFlags.Static | BindingFlags.NonPublic)));
             ModLog.Step("damage hook patch ok");
             PatchedNames.Add(label);

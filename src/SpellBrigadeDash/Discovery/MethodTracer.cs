@@ -59,7 +59,7 @@ internal static class MethodTracer
         var candidates = new List<MethodInfo>();
         foreach (var type in Il2CppNames.GameTypes())
         {
-            if (type.IsInterface || type.IsEnum || type.ContainsGenericParameters || type.Name.Contains('<') || !TypeRx.IsMatch(type.Name)) continue;
+            if (type.IsInterface || type.IsAbstract || (type.Name.Length > 1 && type.Name[0] == 'I' && char.IsUpper(type.Name[1])) || type.IsEnum || type.ContainsGenericParameters || type.Name.Contains('<') || !TypeRx.IsMatch(type.Name)) continue;
             if (IsStruct(type)) continue; // patching methods on (non-blittable) game structs is a classic IL2CPP crash
             MethodInfo[] methods;
             try
@@ -88,6 +88,18 @@ internal static class MethodTracer
                 candidates.Add(m);
             }
         }
+
+        // No native code (interfaces/abstract) or code shared with another method (merged identical bodies):
+        // patching those crashed the game in 0.3.0.
+        var pointers = candidates.ToDictionary(m => m, m => NativeCode.Pointer(m));
+        var shared = pointers.Values.GroupBy(p => p).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
+        candidates = candidates.Where(m =>
+        {
+            var ptr = pointers[m];
+            if (ptr != IntPtr.Zero && !shared.Contains(ptr)) return true;
+            Skipped.Add($"{Label(m)}  [{(ptr == IntPtr.Zero ? "no native code" : "shares its code with another method")}]");
+            return false;
+        }).ToList();
 
         var max = Math.Max(0, ModConfig.TraceMaxMethods.Value);
         var chosen = candidates

@@ -52,6 +52,6 @@ internal static class NetBridge
     public static void SendDash(float invulnerableSeconds)
     {
         ModLog.InfoOnce("netbridge-pending",
-            "Co-op: dash sync message not wired yet; other players' i-frames use movement-based dash detection (Multiplayer.RemoteIFrames).");
+            "Co-op: The Spell Brigade applies damage on each player's own PC, so every player's own mod protects them while dashing.");
     }
 }
