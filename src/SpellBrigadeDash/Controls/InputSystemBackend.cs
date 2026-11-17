@@ -104,15 +104,21 @@ internal sealed class InputSystemBackend : IInputBackend
     }
 
     // Resolved controls per path. A path that doesn't resolve (no keyboard yet, typo) is retried every 2s.
-    private readonly Dictionary<string, (ButtonControl? control, float resolvedAt)> _controls = new();
+    private readonly Dictionary<string, ResolvedControl> _controls = new();
+
+    private sealed class ResolvedControl
+    {
+        public ButtonControl? Control;
+        public float ResolvedAt;
+    }
 
     private ButtonControl? Control(string path)
     {
         path = path.Trim();
         if (path.Length == 0) return null;
         var now = Time.unscaledTime;
-        if (_controls.TryGetValue(path, out var entry) && (entry.control != null || now - entry.resolvedAt < 2f))
-            return entry.control;
+        if (_controls.TryGetValue(path, out var entry) && (entry.Control != null || now - entry.ResolvedAt < 2f))
+            return entry.Control;
 
         ButtonControl? control = null;
         try
@@ -125,7 +131,7 @@ internal sealed class InputSystemBackend : IInputBackend
         }
 
         if (control == null) ModLog.WarnOnce("nocontrol-" + path, $"Hotkey '{path}' doesn't match any key (check the [Debug] section of the config).");
-        _controls[path] = (control, now);
+        _controls[path] = new ResolvedControl { Control = control, ResolvedAt = now };
         return control;
     }
 

@@ -61,8 +61,9 @@ your PC.
 3. Click **Start modded** once and wait until you reach the main menu. BepInEx generates `BepInEx/interop/`
    on that first start, which can take a minute. Then close the game.
 4. Find your profile's BepInEx folder: r2modman → *Settings* → *Browse profile folder* (Gale: *Open profile folder*).
-5. Unzip this repo, copy `GamePaths.props.user.example` to `GamePaths.props.user`, and set `BepInExDir` to that
-   folder (it must contain `core` and `interop`).
+5. Unzip this repo. The build finds BepInEx by itself if the repo sits **inside** that BepInEx folder, or if
+   you use r2modman's *Default* profile. Otherwise copy `GamePaths.props.user.example` to `GamePaths.props.user` and
+   set `BepInExDir` to that folder (it must contain `core` and `interop`). The build prints `Using BepInEx at: ...`.
 6. In a terminal in the repo folder, build and install straight into the profile:
 
 ```bash
@@ -83,6 +84,13 @@ dotnet build src/SpellBrigadeDash -c Release -t:Package
 
 The first builds `src/SpellBrigadeDash/bin/Release/SpellBrigadeDash.dll`. The second builds `dist/SpellBrigadeDash-0.1.0.zip`, which you can import
 in r2modman/Gale (*Settings → Import local mod*) or upload to Thunderstore.
+
+**Troubleshooting**
+
+- `CS0656 Missing compiler required member 'System.Runtime.CompilerServices.NullableAttribute..ctor'`: fixed in
+  `CompilerAttributes.cs`. Make sure you have the latest source.
+- `BepInEx not found` / `No interop assemblies`: check the `Using BepInEx at:` line, and start the game once with
+  BepInEx so `interop/` gets generated.
 
 **Files you'll need**
 

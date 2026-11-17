@@ -86,7 +86,18 @@ public sealed class RemoteDashDetector
 
     public void Clear() => _tracks.Clear();
 
-    private readonly record struct Sample(float Time, Vector3 Position);
+    // Plain struct on purpose: records / readonly structs need compiler attributes that clash with the game's interop assemblies.
+    private struct Sample
+    {
+        public Sample(float time, Vector3 position)
+        {
+            Time = time;
+            Position = position;
+        }
+
+        public float Time;
+        public Vector3 Position;
+    }
 
     private sealed class Track
     {

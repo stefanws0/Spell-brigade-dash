@@ -5,7 +5,9 @@
     <AssemblyName>SpellBrigadeDash</AssemblyName>
     <RootNamespace>SpellBrigadeDash</RootNamespace>
     <Version>0.1.0</Version>
-    <LangVersion>latest</LangVersion>
+    <!-- C# 10: newer versions emit extra compiler attributes (RefSafetyRules) that could clash with interop copies. -->
+    <LangVersion>10</LangVersion>
+    <!-- See CompilerAttributes.cs: the mod ships its own NullableAttribute because the game's interop exposes a broken one. -->
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -13,16 +15,22 @@
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <!-- Interop assemblies are generated per game, so version mismatches between them are expected. -->
-    <NoWarn>$(NoWarn);MSB3277;CS1591</NoWarn>
+    <NoWarn>$(NoWarn);MSB3277;CS1591;CS0436</NoWarn>
   </PropertyGroup>
 
   <!--
-    Where the game (with BepInEx installed and run once) lives.
-    Copy GamePaths.props.user.example to GamePaths.props.user in the repo root and edit it,
-    or pass -p:GameDir="..." / -p:BepInExDir="..." on the command line.
+    Where BepInEx (installed and started once, so interop/ exists) lives. First match wins:
+      1. BepInExDir / GameDir from GamePaths.props.user (copy GamePaths.props.user.example) or the command line
+      2. this repo sitting inside a BepInEx folder (e.g. ...\profiles\Default\BepInEx\<repo>)
+      3. r2modman's default profile:  %APPDATA%\r2modmanPlus-local\TheSpellBrigade\profiles\Default\BepInEx
+      4. a plain Steam install:        C:\Program Files (x86)\Steam\steamapps\common\The Spell Brigade\BepInEx
   -->
   <Import Project="$(MSBuildThisFileDirectory)..\..\GamePaths.props.user" Condition="Exists('$(MSBuildThisFileDirectory)..\..\GamePaths.props.user')" />
   <PropertyGroup>
+    <_RepoParentDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..'))</_RepoParentDir>
+    <_R2ModmanBepInEx>$(APPDATA)\r2modmanPlus-local\TheSpellBrigade\profiles\Default\BepInEx</_R2ModmanBepInEx>
+    <BepInExDir Condition="'$(BepInExDir)' == '' And '$(GameDir)' == '' And Exists('$(_RepoParentDir)\core\BepInEx.Unity.IL2CPP.dll')">$(_RepoParentDir)</BepInExDir>
+    <BepInExDir Condition="'$(BepInExDir)' == '' And '$(GameDir)' == '' And '$(APPDATA)' != '' And Exists('$(_R2ModmanBepInEx)\core\BepInEx.Unity.IL2CPP.dll')">$(_R2ModmanBepInEx)</BepInExDir>
     <GameDir Condition="'$(GameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\The Spell Brigade</GameDir>
     <BepInExDir Condition="'$(BepInExDir)' == ''">$(GameDir)\BepInEx</BepInExDir>
   </PropertyGroup>
@@ -38,6 +46,7 @@
   </ItemGroup>
 
   <Target Name="CheckGamePaths" BeforeTargets="ResolveAssemblyReferences">
+    <Message Importance="high" Text="Using BepInEx at: $(BepInExDir)" />
     <Error Condition="!Exists('$(BepInExDir)\core\BepInEx.Unity.IL2CPP.dll')"
            Text="BepInEx not found at '$(BepInExDir)'. Install BepInExPack_IL2CPP into the game (or set BepInExDir to your r2modman/Gale profile's BepInEx folder) - see README.md." />
     <Error Condition="!Exists('$(BepInExDir)\interop\UnityEngine.CoreModule.dll')"
