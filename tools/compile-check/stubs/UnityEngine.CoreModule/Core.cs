@@ -222,6 +222,7 @@ namespace UnityEngine
     public struct LayerMask
     {
         public static string LayerToName(int layer) => null;
+        public static int NameToLayer(string layerName) => -1;
     }
 
     public enum KeyCode
@@ -311,6 +312,8 @@ namespace UnityEngine
     {
         public static bool GetIgnoreLayerCollision(int layer1, int layer2) => false;
         public static Il2CppStructArray<RaycastHit> SphereCastAll(Vector3 origin, float radius, Vector3 direction, float maxDistance, int layerMask, QueryTriggerInteraction queryTriggerInteraction) => null;
+        public static bool SphereCast(Vector3 origin, float radius, Vector3 direction, out RaycastHit hitInfo, float maxDistance, int layerMask, QueryTriggerInteraction queryTriggerInteraction) { hitInfo = default; return false; }
+        public static bool Raycast(Vector3 origin, Vector3 direction, out RaycastHit hitInfo, float maxDistance, int layerMask, QueryTriggerInteraction queryTriggerInteraction) { hitInfo = default; return false; }
     }
 
     // Physics2D module
@@ -384,5 +387,20 @@ namespace UnityEngine.UI
         public Type type { get; set; }
 
         public enum Type { Simple, Sliced, Tiled, Filled }
+    }
+}
+
+namespace UnityEngine.AI
+{
+    public struct NavMeshHit
+    {
+        public Vector3 m_Position;
+        public Vector3 position => m_Position;
+    }
+
+    public static class NavMesh
+    {
+        public static bool SamplePosition(Vector3 sourcePosition, out NavMeshHit hit, float maxDistance, int areaMask) { hit = default; return false; }
+        public static bool Raycast(Vector3 sourcePosition, Vector3 targetPosition, out NavMeshHit hit, int areaMask) { hit = default; return false; }
     }
 }

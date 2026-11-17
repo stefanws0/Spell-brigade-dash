@@ -14,7 +14,7 @@ All design decisions are in [`docs/DESIGN.md`](docs/DESIGN.md).
 | Cards | **Dash** (Epic, unlock) · **+1 Charge** (Legendary) · **Quick Recovery** (Epic) · **Long Stride** (Epic) · **Blazing Dash** (Legendary) · **Ethereal Step** (Legendary, no HP cost) |
 | Co-op | Everyone installs it. Other players' dashes are detected from movement, so they get i-frames too |
 
-## Status: still a *discovery build* (0.2.0)
+## Status: still a *discovery build* (0.3.0)
 
 The Spell Brigade is an IL2CPP game. Its code can only be inspected through files BepInEx generates on a PC with the
 game installed, and those weren't available while writing this mod. So this version **finds the game's player,
@@ -72,7 +72,7 @@ your PC.
 dotnet build src/SpellBrigadeDash -c Release -p:DeployToGame=true
 ```
 
-7. **Start modded** again. The BepInEx console shows `SpellBrigadeDash 0.2.0 loaded`. Start a run and press Space.
+7. **Start modded** again. The BepInEx console shows `SpellBrigadeDash 0.3.0 loaded`. Start a run and press Space.
 
 Other build commands:
 
@@ -84,7 +84,7 @@ dotnet build src/SpellBrigadeDash -c Release
 dotnet build src/SpellBrigadeDash -c Release -t:Package
 ```
 
-The first builds `src/SpellBrigadeDash/bin/Release/SpellBrigadeDash.dll`. The second builds `dist/SpellBrigadeDash-0.2.0.zip`, which you can import
+The first builds `src/SpellBrigadeDash/bin/Release/SpellBrigadeDash.dll`. The second builds `dist/SpellBrigadeDash-0.3.0.zip`, which you can import
 in r2modman/Gale (*Settings → Import local mod*) or upload to Thunderstore.
 
 **Troubleshooting**

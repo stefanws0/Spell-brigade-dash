@@ -210,8 +210,33 @@ internal static class HealthBridge
         {
             var type = _cur is PropertyInfo p ? p.PropertyType : ((FieldInfo)_cur).FieldType;
             object boxed = type == typeof(int) ? (int)value : type == typeof(double) ? (double)value : value;
+
+            // The game keeps a network-synced copy (HealthContainer.SyncedCurrentHealth, a NetworkVariable).
+            // Write that first, so the health bar updates and other players see the new HP.
+            WriteSynced(boxed);
+
             if (_cur is PropertyInfo prop) prop.SetValue(_curTarget, boxed);
             else ((FieldInfo)_cur).SetValue(_curTarget, boxed);
         }
+
+        private void WriteSynced(object boxed)
+        {
+            if (_syncedBroken) return;
+            try
+            {
+                var syncedProp = _curTarget.GetType().GetProperty("Synced" + _cur.Name, Flags);
+                var variable = syncedProp?.GetValue(_curTarget);
+                var valueProp = variable?.GetType().GetProperty("Value", BindingFlags.Instance | BindingFlags.Public);
+                if (valueProp == null || !valueProp.CanWrite) return;
+                valueProp.SetValue(variable, boxed);
+            }
+            catch (Exception ex)
+            {
+                _syncedBroken = true; // e.g. only the server may write it; the local value is still set
+                ModLog.Warn($"Dash HP cost: couldn't write Synced{_cur.Name} ({(ex.InnerException ?? ex).Message}); only the local value is changed.");
+            }
+        }
+
+        private bool _syncedBroken;
     }
 }

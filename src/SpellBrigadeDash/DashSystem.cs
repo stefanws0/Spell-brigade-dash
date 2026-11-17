@@ -168,6 +168,12 @@ internal sealed class DashSystem
             return;
         }
 
+        if (ModConfig.SoundEnabled.Value)
+        {
+            ModLog.Step("sound: preparing FMOD event");
+            FmodSound.Prepare();
+        }
+
         ModLog.Step("hooks: start");
         DamageHooks.HookConfigured();
         DamageHooks.HookFor(p);
@@ -263,7 +269,9 @@ internal sealed class DashSystem
         if (ModConfig.DustPuff.Value) _fx.SpawnPuff(p, p.Feet, dir, _dustColor, 1f);
         if (ModConfig.Afterimages.Value) _fx.SpawnAfterimage(p, _ghostStart, _ghostEnd, ModConfig.AfterimageLifetime.Value);
         _active.NextGhost = ModConfig.AfterimageInterval.Value;
-        Sound.Play(_fx.Root, now);
+        Sound.Play(_fx.Root, p.Feet, now);
+        GameFx.TeleportBurst(p);
+        GameFx.SpeedLines(p, _fx.Root, true);
     }
 
     /// <summary>Roughly the middle of the wizard's body (for streaks and sparkles).</summary>
@@ -331,6 +339,7 @@ internal sealed class DashSystem
     {
         var a = _active!;
         _active = null;
+        GameFx.SpeedLines(p, _fx.Root, false);
         if (ModConfig.DustPuffOnLanding.Value) _fx.SpawnPuff(p, p.Feet, a.Dir, _dustColor, 0.6f);
         if (ModConfig.Sparkles.Value) _fx.SpawnSparkleBurst(p, BodyCenter(p), _sparkleStart, _sparkleEnd, 8);
     }
@@ -498,6 +507,8 @@ internal sealed class DashSystem
         foreach (var c in _cards)
             sb.AppendLine($"  {c.Title,-16} {c.Rarity,-10} max {c.MaxStacks}  taken {_progress.Stacks(c.Id)}  offerable now: {DashCards.IsAvailable(c, _progress)}");
         sb.AppendLine($"Dash sound: {Sound.Status}");
+        sb.AppendLine($"Game effects: {GameFx.Status}");
+        sb.AppendLine($"Wall checks: {DashMotor.Describe()}");
         sb.AppendLine($"Dash HP cost: {DashTuning.HealthCostFraction(_stats, _progress) * 100f:0.#}% of max HP; health: {HealthBridge.Status}");
     }
 

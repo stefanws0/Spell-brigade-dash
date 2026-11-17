@@ -18,11 +18,21 @@ internal sealed class SoundPlayer
     private AudioMixerGroup? _mixer;
     private float _nextSearch;
 
-    public string Status { get; private set; } = "not searched yet";
+    private string _status = "not searched yet";
 
-    public void Play(GameObject host, float now)
+    public string Status => FmodSound.Available ? "FMOD: " + FmodSound.Status : _status;
+
+    public void Play(GameObject host, Vector3 position, float now)
     {
         if (!ModConfig.SoundEnabled.Value) return;
+
+        // The Spell Brigade uses FMOD; Unity AudioSources are the fallback for other setups.
+        if (FmodSound.Available)
+        {
+            FmodSound.Play(position);
+            return;
+        }
+
         try
         {
             if (_clip == null && now >= _nextSearch)
@@ -78,7 +88,7 @@ internal sealed class SoundPlayer
         var clips = Resources.FindObjectsOfTypeAll<AudioClip>().Where(c => c != null).ToList();
         if (clips.Count == 0)
         {
-            Status = "no AudioClips loaded (the game may use FMOD/Wwise; see discovery report)";
+            _status = "no AudioClips loaded (the game may use FMOD/Wwise; see discovery report)";
             return;
         }
 
@@ -110,9 +120,9 @@ internal sealed class SoundPlayer
             _mixer = null;
         }
 
-        Status = _clip != null
+        _status = _clip != null
             ? $"using '{_clip.name}' ({_clip.length:0.00}s) via mixer '{_mixer?.name ?? "none"}'"
             : $"no matching clip among {clips.Count} loaded clips";
-        ModLog.Info($"Dash sound: {Status}");
+        ModLog.Info($"Dash sound: {_status}");
     }
 }

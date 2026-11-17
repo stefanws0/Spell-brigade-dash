@@ -3,22 +3,27 @@ namespace SpellBrigadeDash.Motion;
 using System;
 using SpellBrigadeDash.Game;
 using UnityEngine;
+using UnityEngine.AI;
 
 /// <summary>
 /// Moves a wizard along the dash path while respecting walls. It works with whatever the game uses
 /// for movement: CharacterController, Rigidbody2D, Rigidbody, or a plain Transform.
 ///
-/// Collision rule: the dash collides with every layer the wizard's own layer collides with
-/// (taken from the game's physics collision matrix), so it behaves exactly like walking, except:
-///  * colliders that belong to the wizard are ignored,
-///  * triggers are ignored,
-///  * things we already overlap at the start are ignored (so a surrounded wizard can still escape),
-///  * "enemy" layers are ignored when Dash.PassThroughEnemies is on.
+/// 3D collision (The Spell Brigade):
+///  * obstacles = the physics layers named in Dash.BlockingLayers ("Obstacles", "TargetableObstacles");
+///    the game's collision matrix can't be read (Physics.GetIgnoreLayerCollision returns nonsense in this build),
+///  * checked with Physics.SphereCast, falling back to three Physics.Raycasts if SphereCast is stripped
+///    (SphereCastAll is: "Method unstripping failed"),
+///  * the map edge = the end of the NavMesh, checked with NavMesh.Raycast (Dash.StayOnNavMesh),
+///  * things already overlapped at the start are ignored, so a surrounded wizard can still escape.
 /// </summary>
 internal static class DashMotor
 {
-    private const float Skin = 0.02f;
+    private const float Skin = 0.05f;
+    private const float CastHeight = 0.5f;
     private static bool _castBroken;
+    private static int _castMode; // 0 = SphereCast, 1 = Raycasts, 2 = none
+    private static bool _navBroken;
 
     /// <summary>Move up to <paramref name="distance"/> along <paramref name="dir"/>. Returns the distance actually travelled.</summary>
     public static float Move(PlayerInfo p, Vector3 dir, float distance)
@@ -60,24 +65,46 @@ internal static class DashMotor
 
     public static int BlockingMask(PlayerInfo p)
     {
-        var layer = p.Root.layer;
+        var names = ModConfig.SplitList(ModConfig.BlockingLayers.Value);
+        if (!p.Is2D && names.Length > 0)
+        {
+            var named = 0;
+            foreach (var name in names)
+            {
+                try
+                {
+                    var layer = LayerMask.NameToLayer(name);
+                    if (layer >= 0) named |= 1 << layer;
+                }
+                catch
+                {
+                    // fall through
+                }
+            }
+
+            if (named != 0) return named;
+            ModLog.WarnOnce("no-blocking-layers", $"None of Dash.BlockingLayers ({ModConfig.BlockingLayers.Value}) exist; falling back to the collision matrix.");
+        }
+
+        var own = p.Root.layer;
         var mask = 0;
         try
         {
             if (p.Is2D)
             {
-                mask = Physics2D.GetLayerCollisionMask(layer);
+                mask = Physics2D.GetLayerCollisionMask(own);
             }
             else
             {
                 for (var i = 0; i < 32; i++)
-                    if (!Physics.GetIgnoreLayerCollision(layer, i))
+                    if (!Physics.GetIgnoreLayerCollision(own, i))
                         mask |= 1 << i;
+                mask &= ~(1 << own);
             }
         }
         catch
         {
-            mask = ~0;
+            mask = ~(1 << own);
         }
 
         if (ModConfig.PassThroughEnemies.Value)
@@ -128,28 +155,78 @@ internal static class DashMotor
 
     private static float Allowed3D(PlayerInfo p, Vector3 from, Vector3 dir, float distance)
     {
-        if (_castBroken) return distance;
+        var allowed = distance;
+        var mask = p.CachedMask ??= BlockingMask(p);
+        if (mask != 0) allowed = Math.Min(allowed, ObstacleDistance(p, from, dir, distance, mask));
+        if (ModConfig.StayOnNavMesh.Value) allowed = Math.Min(allowed, NavMeshDistance(from, dir, allowed));
+        return Math.Max(0f, allowed);
+    }
+
+    /// <summary>Distance until the first obstacle collider, or <paramref name="distance"/> if the way is clear.</summary>
+    public static float ObstacleDistance(PlayerInfo p, Vector3 from, Vector3 dir, float distance, int mask)
+    {
+        var origin = from + Vector3.up * CastHeight;
+        var radius = Math.Max(0.1f, p.Radius * 0.9f);
+
+        if (_castMode == 0)
+        {
+            try
+            {
+                return Physics.SphereCast(origin, radius, dir, out var hit, distance + Skin, mask, QueryTriggerInteraction.Ignore)
+                    ? Math.Max(0f, hit.distance - Skin)
+                    : distance;
+            }
+            catch (Exception ex)
+            {
+                _castMode = 1;
+                ModLog.Warn($"Physics.SphereCast unavailable ({ex.Message}); using raycasts for walls.");
+            }
+        }
+
+        if (_castMode == 1)
+        {
+            try
+            {
+                var side = Vector3.Cross(Vector3.up, dir).normalized * radius;
+                var best = distance;
+                foreach (var o in new[] { origin, origin + side, origin - side })
+                    if (Physics.Raycast(o, dir, out var hit, distance + radius + Skin, mask, QueryTriggerInteraction.Ignore))
+                        best = Math.Min(best, Math.Max(0f, hit.distance - radius - Skin));
+                return best;
+            }
+            catch (Exception ex)
+            {
+                _castMode = 2;
+                ModLog.Warn($"Physics.Raycast unavailable ({ex.Message}); dashes only stop at the edge of the map.");
+            }
+        }
+
+        return distance;
+    }
+
+    /// <summary>Distance until the dash would leave the walkable area (the edge of the NavMesh).</summary>
+    public static float NavMeshDistance(Vector3 from, Vector3 dir, float distance)
+    {
+        if (_navBroken || distance <= 0f) return distance;
         try
         {
-            var origin = from + Vector3.up * Math.Max(p.Radius, 0.1f);
-            var hits = Physics.SphereCastAll(origin, p.Radius * 0.9f, dir, distance + Skin, p.CachedMask ??= BlockingMask(p), QueryTriggerInteraction.Ignore);
-            var allowed = distance;
-            foreach (var hit in hits)
-            {
-                var col = hit.collider;
-                if (col == null) continue;
-                if (hit.distance <= 0.0001f) continue;
-                if (p.GameObjectPtrs.Contains(col.gameObject.Pointer)) continue;
-                allowed = Math.Min(allowed, Math.Max(0f, hit.distance - Skin));
-            }
-
-            return allowed;
+            // Project the start onto the NavMesh first: the wizard's pivot isn't exactly on it.
+            if (!NavMesh.SamplePosition(from, out var start, 2f, -1)) return distance;
+            var target = start.position + dir * distance;
+            if (!NavMesh.Raycast(start.position, target, out var hit, -1)) return distance;
+            var flat = hit.position - start.position;
+            flat.y = 0f;
+            return Math.Max(0f, flat.magnitude - Skin);
         }
         catch (Exception ex)
         {
-            _castBroken = true;
-            ModLog.Warn($"Physics.SphereCastAll unavailable ({ex.Message}); dashes will ignore walls.");
+            _navBroken = true;
+            ModLog.Warn($"NavMesh queries unavailable ({ex.Message}); dashes don't check the map edge.");
             return distance;
         }
     }
+
+    /// <summary>Which wall checks work in this build (for the discovery report).</summary>
+    public static string Describe() =>
+        $"obstacles: {(_castMode == 0 ? "SphereCast" : _castMode == 1 ? "Raycast x3" : "none")}, map edge: {(_navBroken ? "none" : "NavMesh.Raycast")}";
 }

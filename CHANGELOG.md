@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.0 (wired to the game, from the first discovery report)
+
+- **The dash stops at walls and the map edge.** This build has no `Physics.SphereCastAll` and returns nonsense for the
+  layer collision matrix, so dashes went through everything. Walls are now the `Obstacles` / `TargetableObstacles`
+  layers (`Dash.BlockingLayers`), checked with `SphereCast` (falling back to raycasts), and the map edge is the end of
+  the NavMesh (`Dash.StayOnNavMesh`).
+- **Wizard detection uses the game's `GameplayPlayer` class** with its `IsOwner` flag, instead of scanning every object.
+  Ghosts (downed wizards) can't dash.
+- **HP cost goes through the game's health:** `HealthContainer.CurrentHealth` plus its network-synced copy
+  (`SyncedCurrentHealth`), so the health bar updates and other players see it.
+- **Native effects:** the game's own teleport sparkle burst and fast-running speed lines play with the dash, on top of
+  the violet effects (`Effects.GameTeleportBurst`, `Effects.GameSpeedLines`).
+- **Dash sound through FMOD** (the game doesn't use Unity audio): an event is picked by name, or set
+  `Sound.FmodEvent`. The report lists every event.
+- Co-op: the game applies damage on each player's own PC, so movement-based i-frames for other players are now off by
+  default (`Multiplayer.RemoteIFrames`).
+- Discovery report: wall-check self-test, FMOD event list (section 17) and the level-up shop classes (section 18).
+  The opt-in method trace now focuses on the shop.
+
 ## 0.2.0 (after the first playtest)
 
 - **Dash key is now Space** (Shift also opened the game's stats panel). Rebindable as before.

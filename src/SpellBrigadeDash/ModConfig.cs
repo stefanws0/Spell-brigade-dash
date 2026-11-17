@@ -19,6 +19,8 @@ internal static class ModConfig
     public static ConfigEntry<string> EnemyLayerHints = null!;
     public static ConfigEntry<float> InputBuffer = null!;
     public static ConfigEntry<float> HealthCostPercent = null!;
+    public static ConfigEntry<string> BlockingLayers = null!;
+    public static ConfigEntry<bool> StayOnNavMesh = null!;
 
     // ---- Controls ----
     public static ConfigEntry<string> KeyboardBinding = null!;
@@ -58,12 +60,15 @@ internal static class ModConfig
     public static ConfigEntry<string> DustColor = null!;
     public static ConfigEntry<bool> BarFeedback = null!;
     public static ConfigEntry<bool> RemoteAfterimages = null!;
+    public static ConfigEntry<bool> GameTeleportBurst = null!;
+    public static ConfigEntry<bool> GameSpeedLines = null!;
 
     // ---- Sound ----
     public static ConfigEntry<bool> SoundEnabled = null!;
     public static ConfigEntry<string> SoundClipName = null!;
     public static ConfigEntry<string> SoundClipHints = null!;
     public static ConfigEntry<float> SoundVolume = null!;
+    public static ConfigEntry<string> SoundFmodEvent = null!;
 
     // ---- Upgrades ----
     public static ConfigEntry<string> UnlockRarity = null!;
@@ -115,7 +120,7 @@ internal static class ModConfig
 
     // ---- Internal ----
     /// <summary>Bumped when shipped defaults change; older config files get those entries reset (see Migrate).</summary>
-    private const int CurrentConfigVersion = 2;
+    private const int CurrentConfigVersion = 3;
     public static ConfigEntry<int> ConfigVersion = null!;
 
     public static void Init(ConfigFile cfg)
@@ -137,6 +142,10 @@ internal static class ModConfig
             "Comma-separated words. Physics layers whose name contains one of them count as 'enemy' for PassThroughEnemies.");
         InputBuffer = cfg.Bind(dash, "InputBufferSeconds", 0.1f,
             new ConfigDescription("Pressing dash this long before the current dash ends queues the next one.", new AcceptableValueRange<float>(0f, 0.5f)));
+        BlockingLayers = cfg.Bind(dash, "BlockingLayers", "Obstacles,TargetableObstacles",
+            "Comma-separated physics layer names that stop a dash (3D). The game's walls and rocks are on 'Obstacles'. Empty = use the collision matrix.");
+        StayOnNavMesh = cfg.Bind(dash, "StayOnNavMesh", true,
+            "Stop the dash at the edge of the walkable area (the NavMesh), so you can't dash out of the arena.");
         HealthCostPercent = cfg.Bind(dash, "HealthCostPercent", 5f,
             new ConfigDescription("Percent of max HP each dash costs until you pick the Legendary 'Ethereal Step' card. Never takes your last HP. 0 = free.",
                 new AcceptableValueRange<float>(0f, 50f)));
@@ -186,14 +195,18 @@ internal static class ModConfig
         DustColor = cfg.Bind(fx, "DustColor", "#E2D6F2F0", "Dust colour.");
         BarFeedback = cfg.Bind(fx, "BarFeedback", true, "Segments flash when refilled; the bar shakes red on an empty press.");
         RemoteAfterimages = cfg.Bind(fx, "RemoteAfterimages", true, "Show afterimages when other (modded) players dash.");
+        GameTeleportBurst = cfg.Bind(fx, "GameTeleportBurst", true, "Also play the game's own teleport sparkle burst when you dash.");
+        GameSpeedLines = cfg.Bind(fx, "GameSpeedLines", true, "Also show the game's own fast-running speed lines during the dash.");
 
         const string sound = "Sound";
         SoundEnabled = cfg.Bind(sound, "Enabled", true, "Play a sound on dash, reusing one of the game's own sounds.");
         SoundClipName = cfg.Bind(sound, "ClipName", "",
             "Exact AudioClip name to use (see the discovery report for the list). Empty = pick automatically using ClipNameHints.");
-        SoundClipHints = cfg.Bind(sound, "ClipNameHints", "dash,dodge,whoosh,woosh,swoosh,swish,swing,blink,teleport,roll,wind",
+        SoundClipHints = cfg.Bind(sound, "ClipNameHints", "dash,dodge,blink,teleport,whoosh,woosh,swoosh,swish",
             "Comma-separated words, in priority order, used to pick a game sound automatically.");
-        SoundVolume = cfg.Bind(sound, "Volume", 0.7f, new ConfigDescription("Dash sound volume.", new AcceptableValueRange<float>(0f, 1f)));
+        SoundVolume = cfg.Bind(sound, "Volume", 0.7f, new ConfigDescription("Dash sound volume (Unity audio only; FMOD events use the game's volume).", new AcceptableValueRange<float>(0f, 1f)));
+        SoundFmodEvent = cfg.Bind(sound, "FmodEvent", "auto",
+            "The game plays sound through FMOD. 'auto' = pick an event whose path matches ClipNameHints. Or an exact path like event:/... (section 17 of the discovery report lists them all).");
 
         const string up = "Upgrades";
         UnlockRarity = cfg.Bind(up, "DashUnlockRarity", "Epic", "Rarity of the card that unlocks the dash (the game's rarity name).");
@@ -212,18 +225,18 @@ internal static class ModConfig
         EtherealStepRarity = cfg.Bind(up, "EtherealStepRarity", "Legendary", "Rarity of 'Ethereal Step' (dashes stop costing HP).");
 
         const string mp = "Multiplayer";
-        RemoteIFrames = cfg.Bind(mp, "RemoteIFrames", true,
-            "Protect OTHER players while they dash. Needed so the host doesn't apply hits to a dashing client. Every player should have the mod.");
-        RemoteDashSpeedFactor = cfg.Bind(mp, "RemoteDashSpeedFactor", 0.6f,
+        RemoteIFrames = cfg.Bind(mp, "RemoteIFrames", false,
+            "Also protect OTHER players while they dash, detected from their movement. Off: The Spell Brigade applies damage on each player's own PC, so their own mod already protects them.");
+        RemoteDashSpeedFactor = cfg.Bind(mp, "RemoteDashSpeedFactor", 0.8f,
             new ConfigDescription("A remote wizard moving faster than this fraction of dash speed counts as dashing.", new AcceptableValueRange<float>(0.2f, 1.5f)));
 
         const string hooks = "GameHooks";
-        PlayerComponent = cfg.Bind(hooks, "PlayerComponent", "auto",
+        PlayerComponent = cfg.Bind(hooks, "PlayerComponent", "GameplayPlayer",
             "Class name of the component on the player wizard (e.g. PlayerController). 'auto' = guess by name. See the discovery report.");
         LocalPlayerMembers = cfg.Bind(hooks, "LocalPlayerMembers",
             "isLocalPlayer,IsLocalPlayer,IsLocal,isLocal,IsOwner,isOwner,IsOwned,isOwned,IsMine,isMine,hasAuthority,HasAuthority,HasInputAuthority,IsLocallyControlled,isLocallyControlled",
             "Bool fields/properties checked (on any component of the wizard) to tell YOUR wizard apart from other players.");
-        DeadMembers = cfg.Bind(hooks, "DeadMembers", "IsDead,isDead,Dead,dead,IsDowned,isDowned,Downed,downed,IsKnockedOut,!IsAlive,!isAlive",
+        DeadMembers = cfg.Bind(hooks, "DeadMembers", "isGhost,IsGhost,IsDead,isDead,Dead,dead,IsDowned,isDowned,Downed,downed,IsKnockedOut,!IsAlive,!isAlive",
             "Bool members that mean 'can't dash right now'. Prefix with ! to invert (e.g. !IsAlive).");
         DamageMethods = cfg.Bind(hooks, "DamageMethods", "",
             "Extra damage methods to block during i-frames, as Type:Method separated by ';' (e.g. PlayerHealth:TakeDamage). Always applied.");
@@ -242,7 +255,7 @@ internal static class ModConfig
         TraceLevelUpMethods = cfg.Bind(disc, "TraceLevelUpMethods", false,
             "EXPERIMENTAL, can crash the game: logs calls to the game's level-up / upgrade methods so the card hook can be found. " +
             "Only turn on when asked to, and only after the mod runs fine without it.");
-        TraceMaxMethods = cfg.Bind(disc, "TraceMaxMethods", 25, "Maximum number of game methods traced.");
+        TraceMaxMethods = cfg.Bind(disc, "TraceMaxMethods", 40, "Maximum number of game methods traced (level-up shop classes first).");
 
         const string dbg = "Debug";
         SafeMode = cfg.Bind(dbg, "SafeMode", false,
@@ -276,18 +289,25 @@ internal static class ModConfig
     private static void Migrate(ConfigFile cfg)
     {
         if (ConfigVersion.Value >= CurrentConfigVersion) return;
+        var reset = new System.Collections.Generic.List<ConfigEntryBase>();
 
         // v2 (0.2.0): Space instead of Shift (game's stats panel), 1 charge / 12 s, violet rounded look.
-        ConfigEntryBase[] reset =
-        {
-            KeyboardBinding, LegacyKey, Charges, RechargeSeconds, BarHeight, BarFillColor, BarChargingColor, BarBackColor,
-            AfterimageInterval, AfterimageLifetime, AfterimageColor, DustColor,
-        };
+        if (ConfigVersion.Value < 2)
+            reset.AddRange(new ConfigEntryBase[]
+            {
+                KeyboardBinding, LegacyKey, Charges, RechargeSeconds, BarHeight, BarFillColor, BarChargingColor, BarBackColor,
+                AfterimageInterval, AfterimageLifetime, AfterimageColor, DustColor,
+            });
+
+        // v3 (0.3.0): real game hooks from the discovery report.
+        if (ConfigVersion.Value < 3)
+            reset.AddRange(new ConfigEntryBase[] { PlayerComponent, DeadMembers, RemoteIFrames, RemoteDashSpeedFactor, SoundClipHints, TraceMaxMethods });
+
         foreach (var entry in reset) entry.BoxedValue = entry.DefaultValue;
 
         ConfigVersion.Value = CurrentConfigVersion;
         cfg.Save();
-        ModLog.Info($"Config updated to version {CurrentConfigVersion}: dash key Space, 1 charge, 12 s recharge, violet effects.");
+        ModLog.Info($"Config updated to version {CurrentConfigVersion} ({reset.Count} setting(s) reset to the new defaults).");
     }
 
     public static string DebugKeyPath(Controls.DebugKey key) => key switch

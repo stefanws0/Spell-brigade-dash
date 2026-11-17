@@ -15,15 +15,17 @@ using SpellBrigadeDash.Game;
 /// </summary>
 internal static class MethodTracer
 {
-    private static readonly Regex TypeRx = new(
-        "(level|upgrade|perk|reward|offer|choice|card|shop|xp|experience|rarity|boon|blessing|augment|talent|draft|relic|infusion|tome|book)",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    // 0.3.0: focused on the level-up shop (StoreCard / StoreItem / PartyLevelManager ...) found in the first report.
+    private static readonly Regex TypeRx = new("(Store|Improvement|PartyLevel|LevelUp|Upgrade|Reroll|Offer)",
+        RegexOptions.CultureInvariant);
+
 
     private static readonly Regex MethodRx = new(
-        "(level.?up|upgrade|perk|reward|offer|choice|choose|chosen|card|shop|rarity|roll|pick|select|generate|grant|draft|reroll|unlock|augment|infus|option)",
+        "(setup|generate|roll|open|show|select|purchase|buy|choose|chosen|pick|confirm|offer|apply|level|upgrade|improv|store|card|reroll|spawn|create|add|grant|refresh)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-    private static readonly Regex PriorityRx = new("(level|upgrade|card|reward|choice|offer)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static readonly Regex PriorityRx = new("(Store|Improvement|PartyLevel)", RegexOptions.CultureInvariant);
 
     private static readonly HashSet<string> SkipNames = new(StringComparer.Ordinal)
     {

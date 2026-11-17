@@ -219,6 +219,18 @@ internal static class DiscoveryReport
                     sb.AppendLine("  " + line);
         });
 
+        Section("17. FMOD sound events (pick one for Sound.FmodEvent)");
+        Try("fmod", () =>
+        {
+            sb.AppendLine("Dash sound: " + sys.Sound.Status);
+            var events = FmodSound.ListEvents();
+            sb.AppendLine($"{events.Count} event(s) in the loaded banks:");
+            foreach (var e in events.Take(3000)) sb.AppendLine("  " + e);
+        });
+
+        Section("18. Level-up shop (for wiring the dash cards)");
+        Try("store", () => DescribeStore(sb));
+
         var text = sb.Length > MaxChars ? sb.ToString(0, MaxChars) + "\n...(truncated)" : sb.ToString();
         File.WriteAllText(Path, text);
         ModLog.Info($"Discovery report written to {Path} ({text.Length / 1024} KB).");
@@ -253,6 +265,18 @@ internal static class DiscoveryReport
         T("Physics2D.CircleCastAll", () => Physics2D.CircleCastAll(new Vector2(99999f, 99999f), 0.1f, Vector2.right, 0.01f, ~0).Length.ToString());
         T("Physics.GetIgnoreLayerCollision", () => Physics.GetIgnoreLayerCollision(0, 0).ToString());
         T("Physics.SphereCastAll", () => Physics.SphereCastAll(new Vector3(99999f, 99999f, 99999f), 0.1f, Vector3.right, 0.01f, ~0, QueryTriggerInteraction.Ignore).Length.ToString());
+        T("Physics.SphereCast", () => Physics.SphereCast(new Vector3(99999f, 99999f, 99999f), 0.1f, Vector3.right, out _, 0.01f, ~0, QueryTriggerInteraction.Ignore).ToString());
+        T("Physics.Raycast", () => Physics.Raycast(new Vector3(99999f, 99999f, 99999f), Vector3.right, out _, 0.01f, ~0, QueryTriggerInteraction.Ignore).ToString());
+        T("LayerMask.NameToLayer(Obstacles)", () => LayerMask.NameToLayer("Obstacles").ToString());
+        if (p != null && !p.IsDestroyed)
+        {
+            T("NavMesh.SamplePosition at wizard", () => UnityEngine.AI.NavMesh.SamplePosition(p.RootT.position, out var hit, 2f, -1) ? $"on NavMesh at {hit.position}" : "not on NavMesh");
+            T("wall distance ahead (obstacles)", () => DashMotor.ObstacleDistance(p, p.RootT.position, p.RootT.forward, 10f, p.CachedMask ??= DashMotor.BlockingMask(p)).ToString("0.00"));
+            T("map-edge distance ahead (NavMesh)", () => DashMotor.NavMeshDistance(p.RootT.position, p.RootT.forward, 50f).ToString("0.00"));
+            T("wall checks in use", DashMotor.Describe);
+        }
+
+        T("FMOD RuntimeManager", () => FmodSound.Available ? "found" : "not found");
         T("Camera.main", () => Camera.main?.name ?? "null");
         T("Time.timeScale", () => Time.timeScale.ToString());
         if (p != null && !p.IsDestroyed)
@@ -324,6 +348,39 @@ internal static class DiscoveryReport
         {
             if (m.IsSpecialName || m.Name.StartsWith("Native", StringComparison.Ordinal) || m.Name.Contains('<')) continue;
             sb.AppendLine($"    {(m.IsStatic ? "static " : "")}{MethodTracer.Pretty(m.ReturnType)} {m.Name}({string.Join(", ", m.GetParameters().Select(x => $"{MethodTracer.Pretty(x.ParameterType)} {x.Name}"))})");
+        }
+    }
+
+    private static readonly Regex StoreTypeRx = new("(Store|Improvement|PartyLevel|LevelUp|Rarity|StatType|Reroll|UpgradeManager|UpgradeBuyer|Offer|Shop)",
+        RegexOptions.CultureInvariant);
+
+    /// <summary>Everything about the game's level-up shop: StoreCard/StoreItem/Improvement classes and their enums.</summary>
+    private static void DescribeStore(StringBuilder sb)
+    {
+        var types = Il2CppNames.GameTypes().Where(t => !t.Name.Contains('<') && StoreTypeRx.IsMatch(t.Name)).OrderBy(t => t.FullName).ToList();
+        sb.AppendLine("Enums:");
+        foreach (var t in types.Where(t => t.IsEnum))
+        {
+            try
+            {
+                sb.AppendLine($"  enum {t.FullName} = {{ {string.Join(", ", Enum.GetNames(t))} }}");
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        var statType = Il2CppNames.FindInteropType("StatType");
+        if (statType != null && statType.IsEnum) sb.AppendLine($"  enum StatType = {{ {string.Join(", ", Enum.GetNames(statType))} }}");
+
+        sb.AppendLine();
+        sb.AppendLine("Classes:");
+        var count = 0;
+        foreach (var t in types.Where(t => !t.IsEnum))
+        {
+            DescribeType(sb, t);
+            if (++count >= 150) break;
         }
     }
 
