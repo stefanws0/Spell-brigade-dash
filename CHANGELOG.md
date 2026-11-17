@@ -18,6 +18,11 @@
   default (`Multiplayer.RemoteIFrames`).
 - Discovery report: wall-check self-test, FMOD event list (section 17) and the level-up shop classes (section 18).
   The method trace now focuses on the shop and is **on** for this test (`Discovery.TraceLevelUpMethods`).
+- Trace safety (the start crash in 0.1.0 came from the trace): no methods on game structs, no struct-by-value
+  parameters/returns, no Netcode RPC plumbing; every traced call leaves a breadcrumb, and a method the game crashed in
+  is written to `BepInEx/config/SpellBrigadeDash.trace-skip.txt` on the next start and never traced again.
+- The previous session's log is kept as `BepInEx/SpellBrigadeDash.prev.log`, and a clean quit is recorded, so crash
+  logs survive a restart.
 
 ## 0.2.0 (after the first playtest)
 

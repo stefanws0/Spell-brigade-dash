@@ -19,4 +19,7 @@ public class DashRunner : MonoBehaviour
     public void Update() => DashSystem.Instance.Update();
 
     public void LateUpdate() => DashSystem.Instance.LateUpdate();
+
+    /// <summary>Marks a normal quit in SpellBrigadeDash.log, so the next start can tell a crash from a clean exit.</summary>
+    public void OnApplicationQuit() => ModLog.Step(ModLog.CleanExit);
 }

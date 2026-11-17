@@ -141,6 +141,12 @@ internal static class DiscoveryReport
             foreach (var kv in MethodTracer.Calls.OrderByDescending(k => k.Value)) sb.AppendLine($"  {kv.Value,6}x  {kv.Key}");
             sb.AppendLine("Traced methods:");
             foreach (var t in MethodTracer.Traced) sb.AppendLine("  " + t);
+            if (MethodTracer.Skipped.Count > 0)
+            {
+                sb.AppendLine($"Skipped because they crashed the game in an earlier session ({MethodTracer.SkipFilePath}):");
+                foreach (var t in MethodTracer.Skipped) sb.AppendLine("  " + t);
+            }
+
             if (MethodTracer.Failed.Count > 0)
             {
                 sb.AppendLine("Could not trace:");

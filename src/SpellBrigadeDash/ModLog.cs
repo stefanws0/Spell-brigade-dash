@@ -22,13 +22,44 @@ internal static class ModLog
 
     public static string FilePath => Path.Combine(Paths.BepInExRootPath, "SpellBrigadeDash.log");
 
+    public static string PreviousFilePath => Path.Combine(Paths.BepInExRootPath, "SpellBrigadeDash.prev.log");
+
+    /// <summary>
+    /// The last breadcrumb of the previous session if it did NOT end with a clean exit (i.e. the game crashed or was
+    /// killed), else null.
+    /// </summary>
+    public static string? PreviousCrashStep { get; private set; }
+
     public static void Init(ManualLogSource log)
     {
         _log = log;
         try
         {
+            // Keep the previous session's log (a crash log is no longer lost by restarting) and see how it ended.
+            if (File.Exists(FilePath))
+            {
+                File.Copy(FilePath, PreviousFilePath, true);
+                string? lastStep = null;
+                foreach (var line in File.ReadAllLines(FilePath))
+                {
+                    var i = line.IndexOf(" STEP  ", StringComparison.Ordinal);
+                    if (i >= 0) lastStep = line[(i + 7)..].Trim();
+                }
+
+                if (lastStep != null && lastStep != CleanExit) PreviousCrashStep = lastStep;
+            }
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning($"Could not read the previous {FilePath}: {ex.Message}");
+        }
+
+        try
+        {
             _file = new StreamWriter(new FileStream(FilePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = true };
             _file.WriteLine($"SpellBrigadeDash {Plugin.Version} log, started {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            if (PreviousCrashStep != null)
+                _file.WriteLine($"Previous session did not exit cleanly; its last step was: {PreviousCrashStep} (log kept as SpellBrigadeDash.prev.log)");
         }
         catch (Exception ex)
         {
@@ -65,6 +96,8 @@ internal static class ModLog
     /// (Harmony patches, first use of a Unity API). If the game dies, the last "STEP" line names the culprit.
     /// </summary>
     public static void Step(string msg) => ToFile("STEP ", msg);
+
+    public const string CleanExit = "clean exit";
 
     /// <summary><see cref="Step"/>, but only the first time for a given key (for things that run every frame).</summary>
     public static void StepOnce(string key, string msg)
