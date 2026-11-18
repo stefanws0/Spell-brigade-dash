@@ -127,7 +127,7 @@ internal static class ModConfig
 
     // ---- Internal ----
     /// <summary>Bumped when shipped defaults change; older config files get those entries reset (see Migrate).</summary>
-    private const int CurrentConfigVersion = 9;
+    private const int CurrentConfigVersion = 10;
     public static ConfigEntry<int> ConfigVersion = null!;
 
     public static void Init(ConfigFile cfg)
@@ -273,8 +273,10 @@ internal static class ModConfig
             "Numeric fields/properties that hold MAX HP.");
 
         const string disc = "Discovery";
-        DiscoveryEnabled = cfg.Bind(disc, "Enabled", true,
-            "Write BepInEx/SpellBrigadeDash-discovery.txt (game classes, damage methods, upgrade types...) when a run starts and when you press the report hotkey (Left Ctrl + 1 by default). Send this file to the mod author.");
+        DiscoveryEnabled = cfg.Bind(disc, "Enabled", false,
+            "Diagnostics for the mod's author, OFF by default: write BepInEx/SpellBrigadeDash-discovery.txt (game classes, damage numbers, " +
+            "upgrade types...) when a run starts and on the report hotkey, and log extra detail to BepInEx/SpellBrigadeDash.log " +
+            "(shop contents, stats panel layout, enemy health, fire damage summaries).");
         TraceLevelUpMethods = cfg.Bind(disc, "TraceLevelUpMethods", false,
             "Developer tool, OFF: patches game methods to log when they run. It crashed the game at level-up in 0.3.0 (merged method bodies), " +
             "so it now skips risky methods, but leave it off unless asked."); 
@@ -290,8 +292,8 @@ internal static class ModConfig
             "Test aid: give the dash at the start of every run instead of waiting for the Dash card in the level-up shop.");
         ShopCardTestMode = cfg.Bind(dbg, "ShopCardTestMode", false,
             "Test aid: the dash cards are Common and much more likely in the level-up shop, so they show up at the first level-up.");
-        DebugHotkeys = cfg.Bind(dbg, "Hotkeys", true,
-            "Debug hotkeys (hold the modifier, then press the key). Defaults: Left Ctrl + 1 = discovery report, + 2 = toggle dash, " +
+        DebugHotkeys = cfg.Bind(dbg, "Hotkeys", false,
+            "Test aid, OFF by default. Debug hotkeys (hold the modifier, then press the key). Defaults: Left Ctrl + 1 = discovery report, + 2 = toggle dash, " +
             "+ 3 = +1 Charge, + 4 = Quick Recovery, + 5 = Long Stride, + 6 = Blazing Dash, + 7 = Ethereal Step.");
         const string keyHelp = " Input System control path, e.g. <Keyboard>/1, <Keyboard>/k, <Keyboard>/numpad1, <Keyboard>/f6.";
         HotkeyModifier = cfg.Bind(dbg, "HotkeyModifier", "<Keyboard>/leftCtrl",
@@ -351,6 +353,13 @@ internal static class ModConfig
 
         // v9 (0.4.4): Stefan, 18 Nov: only the Dash card comes more often (5 copies); the upgrades stay at one copy.
         if (ConfigVersion.Value < 9 && System.Math.Abs(UnlockWeight.Value - 1f) < 0.001f) reset.Add(UnlockWeight);
+
+        // v10 (0.5.0, first release): Stefan, 18 Nov: diagnostics and debug hotkeys off by default.
+        if (ConfigVersion.Value < 10)
+        {
+            if (DiscoveryEnabled.Value) reset.Add(DiscoveryEnabled);
+            if (DebugHotkeys.Value) reset.Add(DebugHotkeys);
+        }
 
         foreach (var entry in reset) entry.BoxedValue = entry.DefaultValue;
 

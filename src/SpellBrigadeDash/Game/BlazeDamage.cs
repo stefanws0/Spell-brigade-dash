@@ -94,7 +94,8 @@ internal sealed class BlazeDamage
 
         if (_hits > 0 && now >= _nextSummary)
         {
-            ModLog.Info($"Blazing Dash: {_hits} fire hit(s) on {_hitTargets.Count} enemy(ies) in the last {SummarySeconds:0} s, {_dealt:0} damage " +
+            if (ModConfig.DiscoveryEnabled.Value) // diagnostics only
+                ModLog.Info($"Blazing Dash: {_hits} fire hit(s) on {_hitTargets.Count} enemy(ies) in the last {SummarySeconds:0} s, {_dealt:0} damage " +
                         "(with crits, before the burn that follows).");
             _hits = 0;
             _dealt = 0f;

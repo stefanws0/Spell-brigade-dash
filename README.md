@@ -14,15 +14,16 @@ All design decisions are in [`docs/DESIGN.md`](docs/DESIGN.md).
 | Cards | **Dash** (Epic, unlock) · **+1 Charge** (Legendary) · **Quick Recovery** (Epic) · **Long Stride** (Epic) · **Blazing Dash** (Legendary) · **Ethereal Step** (Legendary, no HP cost) |
 | Co-op | Everyone installs it. Other players' dashes are detected from movement, so they get i-frames too |
 
-## Status: playable, before release (0.4.4)
+## Status: first release (0.5.0)
 
 The dash cards are in the game's own level-up shop at their real rarities, and **every run starts without the dash**:
-pick the **Dash** card first, then the upgrades show up. Blazing Dash's fire damages enemies like a fire spell. Still
-to do before a release: a co-op check, polish, and switching the discovery report and debug hotkeys off by default.
+pick the **Dash** card first (5 copies in the shop, so it turns up more often than other Epic cards), then the
+upgrades show up now and then (one copy each). Blazing Dash's fire damages enemies like a fire spell. Co-op hasn't
+been tested yet.
 
-The mod still writes `BepInEx/SpellBrigadeDash-discovery.txt` a few seconds into each run (and on **Left Ctrl + 1**):
-what it found in the game, including the game's damage numbers. Debug hotkeys stand in for picking cards while
-testing. Hold **Left Ctrl** and press:
+**For testing**, two settings are off by default: `[Discovery] Enabled` writes
+`BepInEx/SpellBrigadeDash-discovery.txt` a few seconds into each run (what the mod found in the game, including its
+damage numbers) and logs extra detail; `[Debug] Hotkeys` lets hotkeys stand in for picking cards. Hold **Left Ctrl** and press:
 
 | Key | Action |
 |---|---|

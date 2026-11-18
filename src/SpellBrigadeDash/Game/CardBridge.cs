@@ -210,6 +210,7 @@ internal static class CardBridge
     {
         if (_realItemsLogged) return;
         _realItemsLogged = true;
+        if (!ModConfig.DiscoveryEnabled.Value) return; // diagnostics only
         var sb = new StringBuilder($"Dash cards: the game's shop has {list.Count} character card(s):");
         for (var i = 0; i < list.Count; i++)
         {
@@ -431,7 +432,7 @@ internal static class CardBridge
         if (open) SetCarrier(true, "shop open");
         else if (_carryingSafeStat) SetCarrier(false, "shop closed");
 
-        if (open && !_shopWasOpen)
+        if (open && !_shopWasOpen && ModConfig.DiscoveryEnabled.Value) // diagnostics only
         {
             var items = manager.itemsCurrentlyInStore;
             var sb = new StringBuilder($"Shop opened ({manager.CurrentStoreType}):");

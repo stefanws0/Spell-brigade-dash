@@ -110,11 +110,12 @@ internal static class StatPanelRows
                 if (panel.Source == null) continue;
                 Fill(panel, rows);
                 Fit(panel);
+                if (!ModConfig.DiscoveryEnabled.Value) continue; // the layout measurements are diagnostics
                 MeasureOnce(panel, now);
                 TrackOnScreen(panel);
             }
 
-            WatchPauseMenu(now);
+            if (ModConfig.DiscoveryEnabled.Value) WatchPauseMenu(now);
 
             var shown = string.Join(", ", rows.Where(r => r.Visible).Select(r => $"{r.Title} {r.Value}"));
             if (shown != _shown)

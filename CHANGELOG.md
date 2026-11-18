@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0 (first release)
+
+- **Test aids off by default** (Stefan, 18 Nov): the discovery report and its extra log detail (`[Discovery] Enabled`:
+  shop contents, stats panel layout, enemy health, fire damage summaries, per-dash debug lines) and the debug hotkeys
+  (`[Debug] Hotkeys`). Config v10 switches both off in existing configs; turn them on again for testing.
+- Thunderstore package: release README (how to get the dash, what each card does, co-op not yet tested), manifest
+  description, dependency on `BepInExPack_IL2CPP-6.0.788` (the version the game runs), no link to the private repo.
+
 ## 0.4.4
 
 - **The Dash card shows up more often: 5 copies in the shop** (Stefan, 18 Nov); the upgrade cards keep one copy each

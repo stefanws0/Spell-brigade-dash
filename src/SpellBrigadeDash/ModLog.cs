@@ -88,7 +88,8 @@ internal static class ModLog
     public static void Debug(string msg)
     {
         _log?.LogDebug(msg);
-        ToFile("DEBUG", msg);
+        // Detail for the mod's author: only in the mod's own log file while diagnostics are on.
+        if (ModConfig.DiscoveryEnabled == null || ModConfig.DiscoveryEnabled.Value) ToFile("DEBUG", msg);
     }
 
     /// <summary>
