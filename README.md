@@ -147,3 +147,7 @@ thunderstore/              manifest.json, icon.png, store README
 tools/compile-check/       stub-based compile check
 docs/DESIGN.md             decisions and architecture
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE).
