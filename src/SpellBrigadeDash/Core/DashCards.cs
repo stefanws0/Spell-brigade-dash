@@ -34,7 +34,7 @@ public sealed class DashCardDef
 public sealed class DashCardSettings
 {
     public string UnlockRarity { get; set; } = "Epic";
-    public float UnlockWeight { get; set; } = 1f;
+    public float UnlockWeight { get; set; } = 5f;
 
     public string ExtraChargeRarity { get; set; } = "Legendary";
     public int ExtraChargeMaxStacks { get; set; } = 2;

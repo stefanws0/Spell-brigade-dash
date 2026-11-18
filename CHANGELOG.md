@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.4
+
+- **The Dash card shows up more often: 5 copies in the shop** (Stefan, 18 Nov); the upgrade cards keep one copy each
+  so they stay occasional. Measured over 77 of the game's improvement shops: one Epic copy would have shown the Dash
+  card about once in three runs. Config v9 moves an untouched `Upgrades.DashUnlockWeight = 1` to 5. Not yet seen in a run.
+
 ## 0.4.3
 
 - **Test mode off** (Stefan, 18 Nov, as agreed in HANDOFF): runs start without the dash (`Debug.StartRunWithDash =

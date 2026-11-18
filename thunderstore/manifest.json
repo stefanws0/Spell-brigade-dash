@@ -1,6 +1,6 @@
 {
   "name": "SpellBrigadeDash",
-  "version_number": "0.4.3",
+  "version_number": "0.4.4",
   "website_url": "https://github.com/stefanws0/Spell-brigade-dash",
   "description": "Adds a short Space/LB dash with i-frames, glowing violet afterimages, sparkles and a rounded energy bar under your wizard. Unlocked and upgraded through rare level-up cards. Everyone in the lobby should install it.",
   "dependencies": [

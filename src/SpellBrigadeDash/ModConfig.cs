@@ -127,7 +127,7 @@ internal static class ModConfig
 
     // ---- Internal ----
     /// <summary>Bumped when shipped defaults change; older config files get those entries reset (see Migrate).</summary>
-    private const int CurrentConfigVersion = 8;
+    private const int CurrentConfigVersion = 9;
     public static ConfigEntry<int> ConfigVersion = null!;
 
     public static void Init(ConfigFile cfg)
@@ -225,7 +225,9 @@ internal static class ModConfig
 
         const string up = "Upgrades";
         UnlockRarity = cfg.Bind(up, "DashUnlockRarity", "Epic", "Rarity of the card that unlocks the dash (the game's rarity name).");
-        UnlockWeight = cfg.Bind(up, "DashUnlockWeight", 1f, "Relative chance of the unlock card within its rarity (1 = like any other card).");
+        UnlockWeight = cfg.Bind(up, "DashUnlockWeight", 5f,
+            "Copies of the Dash card in the level-up shop (1 = as likely as any one game card of its rarity). " +
+            "5 by default: with 1, an Epic Dash card showed up about once in three runs. The upgrade cards have one copy each.");
         ExtraChargeRarity = cfg.Bind(up, "ExtraChargeRarity", "Legendary", "Rarity of '+1 Dash Charge'.");
         ExtraChargeMaxStacks = cfg.Bind(up, "ExtraChargeMaxStacks", 2, "How many times '+1 Dash Charge' can be taken per run.");
         QuickRecoveryRarity = cfg.Bind(up, "QuickRecoveryRarity", "Epic", "Rarity of 'Quick Recovery'.");
@@ -346,6 +348,9 @@ internal static class ModConfig
             if (StartRunWithDash.Value) reset.Add(StartRunWithDash);
             if (ShopCardTestMode.Value) reset.Add(ShopCardTestMode);
         }
+
+        // v9 (0.4.4): Stefan, 18 Nov: only the Dash card comes more often (5 copies); the upgrades stay at one copy.
+        if (ConfigVersion.Value < 9 && System.Math.Abs(UnlockWeight.Value - 1f) < 0.001f) reset.Add(UnlockWeight);
 
         foreach (var entry in reset) entry.BoxedValue = entry.DefaultValue;
 

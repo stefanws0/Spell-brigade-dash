@@ -9,7 +9,7 @@ Press **Space** (or **LB** on a controller) for a quick, short dash.
 - **The bar fades out** once it's full, flashes when a segment refills, and shakes red if you press dash while it's empty.
 - **Level-up cards:** the dash is an **Epic** card, and it can be upgraded with **+1 Charge** (Legendary), **Quick Recovery** (Epic), **Long Stride** (Epic), **Blazing Dash** (Legendary) and **Ethereal Step** (Legendary).
 
-## ⚠️ Before release (0.4.3)
+## ⚠️ Before release (0.4.4)
 
 - Every run **starts without the dash**: find the **Dash** card in the level-up shop first, then its upgrades appear.
 - **Blazing Dash** leaves the game's own fire behind you; enemies standing in it take fire damage like a fire spell

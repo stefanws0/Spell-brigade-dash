@@ -9,6 +9,16 @@ public class DashCardsTests
     private static readonly DashCardSettings Settings = new();
 
     [Fact]
+    public void Only_the_Dash_card_comes_in_extra_copies()
+    {
+        // Stefan, 18 Nov: one Epic copy would show the Dash card about once in three runs, so it gets 5 copies; the
+        // upgrades stay at one copy each ("I want them in there occasionally").
+        var cards = DashCards.Build(Settings);
+        Assert.Equal(5f, cards.Single(c => c.Id == DashCardId.Dash).Weight);
+        Assert.All(cards.Where(c => c.Id != DashCardId.Dash), c => Assert.Equal(1f, c.Weight));
+    }
+
+    [Fact]
     public void Before_unlocking_only_the_Dash_card_is_offered()
     {
         var cards = DashCards.Build(Settings);
