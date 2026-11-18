@@ -1,6 +1,7 @@
 // COMPILE-CHECK STUB ONLY - the game classes SpellBrigadeDash uses with real types (the level-up shop, see
 // Game/CardBridge.cs), with the same names, namespaces and member names as the real interop
-// (BepInEx/interop/Runtime.dll, Unity.Netcode.Runtime.dll, Unity.Localization.dll). Bodies are dummies.
+// (BepInEx/interop/Runtime.dll, Unity.Netcode.Runtime.dll, Unity.Localization.dll, Unity.TextMeshPro.dll). Bodies are dummies.
+// Also the stats list (Game/StatPanelRows.cs).
 using System;
 using UnityEngine;
 using Il2CppList = Il2CppSystem.Collections.Generic.List<StoreItem>;
@@ -50,10 +51,65 @@ namespace UnityEngine.Localization.Tables
     }
 }
 
+namespace UnityEngine.Localization.Components
+{
+    public class LocalizeStringEvent : MonoBehaviour
+    {
+        public LocalizeStringEvent(IntPtr pointer) : base(pointer) { }
+        public void RefreshString() { }
+    }
+}
+
+namespace TMPro
+{
+    public class TMP_Text : UnityEngine.UI.MaskableGraphic
+    {
+        public TMP_Text(IntPtr pointer) : base(pointer) { }
+        public string text { get; set; }
+    }
+}
+
+public class StatPanel : MonoBehaviour
+{
+    public StatPanel(IntPtr pointer) : base(pointer) { }
+}
+
+public class PlayerStatEntry : MonoBehaviour
+{
+    public PlayerStatEntry(IntPtr pointer) : base(pointer) { }
+    public UnityEngine.UI.Image statIcon => null;
+    public UnityEngine.Localization.Components.LocalizeStringEvent statTitle => null;
+    public TMPro.TMP_Text valueText => null;
+}
+
+public class PauseMenuManager : MonoBehaviour
+{
+    public PauseMenuManager(IntPtr pointer) : base(pointer) { }
+    public bool IsOpen => false;
+}
+
+public class StatPanel_Player : StatPanel
+{
+    public StatPanel_Player(IntPtr pointer) : base(pointer) { }
+    public Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<PlayerStatEntry> entries => null;
+}
+
 public class NetworkSingleton<T> : Unity.Netcode.NetworkBehaviour
 {
     public NetworkSingleton(IntPtr pointer) : base(pointer) { }
     public static T Instance => default;
+}
+
+public class SingletonPersistent<T> : MonoBehaviour
+{
+    public SingletonPersistent(IntPtr pointer) : base(pointer) { }
+    public static T Instance => default;
+}
+
+public class RunData : SingletonPersistent<RunData>
+{
+    public RunData(IntPtr pointer) : base(pointer) { }
+    public string RunId => null;
 }
 
 public enum StatType

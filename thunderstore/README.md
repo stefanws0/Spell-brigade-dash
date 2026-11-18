@@ -3,7 +3,7 @@
 Press **Space** (or **LB** on a controller) for a quick, short dash.
 
 - **Short hop with i-frames:** about 3 units in 0.12 s, and you can't be hit while dashing.
-- **Charges:** the rounded bar under your wizard starts with 1 dash that refills in 12 s. Cards add segments and speed it up.
+- **Charges:** the rounded bar under your wizard starts with 1 dash that refills in 15 s. Cards add segments and speed it up.
 - **Costs HP:** each dash costs 5% of your max HP (it never takes your last point) until you find the Legendary **Ethereal Step**.
 - **Violet magic:** glowing afterimages, arcane sparkles, speed streaks and a dust burst, plus a whoosh taken from the game's own sounds.
 - **The bar fades out** once it's full, flashes when a segment refills, and shakes red if you press dash while it's empty.

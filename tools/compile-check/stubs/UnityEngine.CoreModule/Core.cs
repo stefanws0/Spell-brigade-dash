@@ -18,6 +18,7 @@ namespace UnityEngine
         public static void DontDestroyOnLoad(Object target) { }
         public static T Instantiate<T>(T original, Transform parent) where T : Object => original;
         public static Il2CppReferenceArray<Object> FindObjectsOfType(Il2CppSystem.Type type) => null;
+        public static Il2CppReferenceArray<Object> FindObjectsOfType(Il2CppSystem.Type type, bool includeInactive) => null;
         public static bool operator ==(Object x, Object y) => ReferenceEquals(x, y);
         public static bool operator !=(Object x, Object y) => !ReferenceEquals(x, y);
         public static implicit operator bool(Object exists) => exists is not null;
@@ -76,6 +77,16 @@ namespace UnityEngine
         public int childCount => 0;
         public Transform GetChild(int index) => null;
         public void SetParent(Transform parent, bool worldPositionStays) { }
+        public int GetSiblingIndex() => 0;
+        public Vector3 TransformPoint(Vector3 position) => default;
+        public void SetSiblingIndex(int index) { }
+    }
+
+    public class RectOffset : Il2CppSystem.Object
+    {
+        public RectOffset(IntPtr pointer) : base(pointer) { }
+        public int top { get; set; }
+        public int bottom { get; set; }
     }
 
     public sealed class RectTransform : Transform
@@ -154,6 +165,7 @@ namespace UnityEngine
     {
         public Sprite(IntPtr pointer) : base(pointer) { }
         public Vector4 border => default;
+        public Texture2D texture => null;
         public static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot, float pixelsPerUnit) => null;
         public static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot, float pixelsPerUnit, uint extrude, SpriteMeshType meshType, Vector4 border) => null;
     }
@@ -167,6 +179,14 @@ namespace UnityEngine
         public Texture(IntPtr pointer) : base(pointer) { }
         public TextureWrapMode wrapMode { get; set; }
         public FilterMode filterMode { get; set; }
+        public int width => 0;
+        public int height => 0;
+    }
+
+    /// <summary>Real one lives in UnityEngine.ImageConversionModule; the assembly doesn't matter for a compile check.</summary>
+    public static class ImageConversion
+    {
+        public static bool LoadImage(Texture2D tex, Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<byte> data) => false;
     }
 
     public sealed class Texture2D : Texture
@@ -243,10 +263,13 @@ namespace UnityEngine
     // UI module
     public enum RenderMode { ScreenSpaceOverlay, ScreenSpaceCamera, WorldSpace }
 
+    public enum TextAnchor { UpperLeft, UpperCenter, UpperRight, MiddleLeft, MiddleCenter, MiddleRight, LowerLeft, LowerCenter, LowerRight }
+
     public sealed class Canvas : Behaviour
     {
         public Canvas(IntPtr pointer) : base(pointer) { }
         public RenderMode renderMode { get; set; }
+        public float scaleFactor { get; set; }
         public int sortingOrder { get; set; }
     }
 
@@ -379,6 +402,27 @@ namespace UnityEngine.UI
     public class MaskableGraphic : Graphic
     {
         public MaskableGraphic(IntPtr pointer) : base(pointer) { }
+    }
+
+    public class LayoutGroup : MonoBehaviour
+    {
+        public LayoutGroup(IntPtr pointer) : base(pointer) { }
+        public UnityEngine.RectOffset padding { get; set; }
+        public UnityEngine.TextAnchor childAlignment { get; set; }
+    }
+
+    public class HorizontalOrVerticalLayoutGroup : LayoutGroup
+    {
+        public HorizontalOrVerticalLayoutGroup(IntPtr pointer) : base(pointer) { }
+        public float spacing { get; set; }
+        public bool childControlHeight { get; set; }
+        public bool childForceExpandHeight { get; set; }
+        public bool childScaleHeight { get; set; }
+    }
+
+    public class VerticalLayoutGroup : HorizontalOrVerticalLayoutGroup
+    {
+        public VerticalLayoutGroup(IntPtr pointer) : base(pointer) { }
     }
 
     public class Image : MaskableGraphic

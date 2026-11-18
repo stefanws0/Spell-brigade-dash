@@ -13,3 +13,6 @@ tools/compile-check/.cache/
 
 # never commit the game's generated interop assemblies
 interop/
+
+# reference images cut from the game (the game's own art, not ours to commit)
+art/reference/

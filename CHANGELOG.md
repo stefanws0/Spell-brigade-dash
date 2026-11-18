@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.4.1
+
+- **Balance: the dash recharges in 15 s per charge** (was 12; Stefan, 18 Nov). Fully upgraded (3x Quick Recovery):
+  8.6 s instead of 6.9 s. Config v6 moves an untouched `Dash.RechargeSeconds = 12` to 15; a custom value is kept.
+- **Each dash card is its own card in the shop.** The game decides "same card" (one per shop, bans) by a card's
+  stat, and all dash cards shared one, so a shop showed at most one dash card and banning one banned them all. Each
+  card now has its own carrier stats (`Core/ShopCarriers`, unit-tested): a stat without a real card between shops, and
+  one the game's analytics accept while a shop is open. Both carry value 0, so the game's own stats never change.
+  `Upgrades.ShopCardStat` is gone.
+- **Own card icons.** Cards use `art/icons/<card>.png` (built into the DLL) or an override in
+  `BepInEx/plugins/SpellBrigadeDash/icons/`, and fall back to the game's Dodge icon. First icon: Dash. New icons are
+  prepared with `tools/icons/make_icon.py` (round, transparent outside, 256x256).
+- Fixed: dying and being revived wiped your dash cards. The game spawns a new wizard object on a revive, and the mod
+  treated every new wizard as a new run. Cards now reset only when the game's own run changes (`RunData.RunId`,
+  `Game/GameRun`, ported from the PC session's pc-backup branch).
+- **Dash stats in the game's stats list** (Escape screen and the hold-to-show stats panel): Dash Charges, Dash
+  Recharge, Dash Distance, Dash HP Cost ("None" after Ethereal Step) and, once picked, Blazing Dash, each with its
+  card's icon. The list is a fixed set of game-stat rows, so the mod adds copies of its last row with the title's
+  localizer switched off and its own text (`Game/StatPanelRows`, values from `Core/DashStatRows`, unit-tested; no
+  patches). Hidden while the dash is locked. `Upgrades.StatsPanelRows` switches them off. The list's box has a fixed
+  height with room for about two extra rows, so the gap between all rows is tightened just enough to fit
+  (`Core/ListFit`, unit-tested); the game's own gap comes back when the dash rows are hidden. Value changes are logged.
+  First try (fitting to the list's own box) failed: that box runs ~250 px past the visible frame, off the bottom of
+  the screen. Measured on screen (18 Nov), the in-game frame holds exactly 15 rows at the game's spacing, so the rows
+  are now fitted into that (`ListFit.DesignedRoom`), less half a row so the last row keeps some space above the
+  frame's bottom edge (Stefan asked for it after seeing the 17 rows fit). Rows then sit 16-21% closer together. Each panel logs its real
+  on-screen layout once ("measured on screen"), including the rest of its canvas. Escape menu: dash rows not seen
+  until 18 Nov 16:06, then verified: they are on the Escape menu's Player page (its round wizard-hat button opens the
+  list; the menu's front page has no stats list, which is why they seemed missing). The log says when the Escape menu
+  opens, what it shows, and when each stats list comes on or off screen.
+- Fixed: afterimages copied every mesh on the wizard, including its spells (the Sun Mage's whole Solar Flare circle)
+  and effect meshes. They now copy only the character model (the parent of the main skinned renderer).
+- Fixed: the wizard's "body" was the biggest mesh on it, which is the Solar Flare circle when the Sun Mage spawns with
+  it out (18 Nov: afterimages copied 'Proximity(Clone)' again, and the dash effects were sized to the flare). The body
+  is now the animated (skinned) model, never anything under `PlayerSpells` (`Core/BodyPick`, unit-tested); the log's
+  "Local wizard" line names it.
+
 ## 0.4.0 (shop test build, verified in game 17 Nov)
 
 - **The dash cards are in the game's own level-up shop.** They're added as character cards to the game's item list

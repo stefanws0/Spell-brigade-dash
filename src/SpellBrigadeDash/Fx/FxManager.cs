@@ -147,7 +147,10 @@ internal sealed class FxManager
         var mat = new Material(shader) { color = start };
         var item = new MeshGhost(ghost, mat, start, end, life);
 
-        foreach (var smr in p.Root.GetComponentsInChildren<SkinnedMeshRenderer>(false))
+        // Only the character model: the wizard object also holds its spells (e.g. the Sun Mage's Solar Flare circle under
+        // PlayerSpells) and effect meshes, which must not be copied into the afterimage.
+        var model = ModelRoot(p);
+        foreach (var smr in model.GetComponentsInChildren<SkinnedMeshRenderer>(false))
         {
             if (smr == null || !smr.enabled) continue;
             var mesh = new Mesh();
@@ -156,7 +159,7 @@ internal sealed class FxManager
             item.Parts.Add(AddMeshPart(ghost, smr.transform, mesh, mat));
         }
 
-        foreach (var mr in p.Root.GetComponentsInChildren<MeshRenderer>(false))
+        foreach (var mr in model.GetComponentsInChildren<MeshRenderer>(false))
         {
             if (mr == null || !mr.enabled) continue;
             var mf = mr.GetComponent<MeshFilter>();
@@ -170,7 +173,31 @@ internal sealed class FxManager
             return;
         }
 
+        ModLog.InfoOnce("ghost-model-" + p.Id, $"Afterimages copy the model '{model.name}' ({item.Parts.Count} mesh(es)), not the whole wizard (spells, effects).");
         Add(item);
+    }
+
+    /// <summary>
+    /// The wizard's character model: the parent of its main (skinned) renderer, which holds the Animator and the armature
+    /// (e.g. GameplayPlayer_SunMage_Skin3(Clone)/Visual/SunMage). Falls back to the wizard object if that isn't found.
+    /// </summary>
+    private static Transform ModelRoot(PlayerInfo p)
+    {
+        try
+        {
+            var main = p.MainRenderer;
+            if (main == null) return p.RootT;
+            var t = main.transform;
+            var parent = t.parent;
+            for (var up = parent; up != null; up = up.parent)
+                if (up.Pointer == p.RootT.Pointer)
+                    return parent == p.RootT ? t : parent!; // inside the wizard: the model root (or the renderer itself)
+            return p.RootT;
+        }
+        catch
+        {
+            return p.RootT;
+        }
     }
 
     private static (Transform, Vector3, SpriteRenderer?) AddMeshPart(GameObject ghost, Transform src, Mesh mesh, Material mat)

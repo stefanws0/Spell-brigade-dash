@@ -49,6 +49,8 @@ internal sealed class DashSystem
     private float _discoveryAt = -1f;
     private float _hooksAt = -1f;
     private bool _hooksInstalled;
+    private string? _runKey;
+    private float _nextRunCheck;
     private int _remoteDashes;
     private int _localDashes;
     private readonly System.Random _rng = new();
@@ -73,6 +75,7 @@ internal sealed class DashSystem
             _input.Poll();
             if (ModConfig.DebugHotkeys.Value) HandleHotkeys();
 
+            CheckRun(Time.unscaledTime);
             ModLog.StepOnce("locate", "first frame: looking for the wizard");
             Locator.Update(Time.unscaledTime);
             var p = Locator.Local;
@@ -97,6 +100,7 @@ internal sealed class DashSystem
             UpdateRemotes(now);
             Invulnerability.Prune();
             CardBridge.Update(_cards, _progress, Time.unscaledTime);
+            StatPanelRows.Update(_stats, _progress, Time.unscaledTime);
 
             if (_discoveryAt > 0f && Time.unscaledTime >= _discoveryAt)
             {
@@ -187,27 +191,45 @@ internal sealed class DashSystem
         ModLog.Step("hooks: done");
     }
 
-    /// <summary>A new local wizard object means a new run: reset the run's cards and charges.</summary>
+    /// <summary>
+    /// A new local wizard object: a run started, or you were revived (the game spawns a fresh wizard). Clears per-wizard
+    /// state only; the run's dash cards are reset by <see cref="CheckRun"/> when the game's run changes.
+    /// </summary>
     private void OnNewLocalPlayer(PlayerInfo p)
     {
-        _stats = ModConfig.BaseStats();
         _active = null;
         _bufferedUntil = -1f;
         _fx.Clear();
         _gameFire.Clear();
         _remote.Clear();
         _remoteEmitters.Clear();
-        _progress.Reset();
-        if (ModConfig.StartRunWithDash.Value) _progress.Apply(DashCardId.Dash);
         SyncCharges();
         _charges.RefillAll();
-        ModLog.Info($"New run detected. Dash {(_progress.Unlocked ? "unlocked (Debug.StartRunWithDash)" : "locked until the Dash card is picked")}.");
+        ModLog.Info($"Wizard spawned; dash cards this run: {_progress}.");
 
         DamageHooks.SetLocal(p);
         if (!_hooksInstalled) _hooksAt = Time.unscaledTime + Math.Max(0f, ModConfig.HookDelaySeconds.Value);
         else if (!ModConfig.SafeMode.Value) DamageHooks.HookFor(p);
 
         if (ModConfig.DiscoveryEnabled.Value) _discoveryAt = Time.unscaledTime + Math.Max(0f, ModConfig.HookDelaySeconds.Value) + 3f;
+    }
+
+    /// <summary>Reset the dash cards when the game starts a new run (not when a new wizard object appears).</summary>
+    private void CheckRun(float now)
+    {
+        if (now < _nextRunCheck) return;
+        _nextRunCheck = now + 0.5f;
+        var key = GameRun.Key();
+        if (key == null || key == _runKey) return;
+        _runKey = key;
+
+        _stats = ModConfig.BaseStats();
+        _active = null;
+        _progress.Reset();
+        if (ModConfig.StartRunWithDash.Value) _progress.Apply(DashCardId.Dash);
+        SyncCharges();
+        _charges.RefillAll();
+        ModLog.Info($"New run ({GameRun.Status}). Dash {(_progress.Unlocked ? "unlocked (Debug.StartRunWithDash)" : "locked until the Dash card is picked")}.");
     }
 
     private void SyncCharges()
@@ -512,7 +534,9 @@ internal sealed class DashSystem
         sb.AppendLine($"Charges: {_charges.Full}/{_charges.Max}  progress {_charges.Progress:0.00}  recharge {_charges.RechargeSeconds:0.00}s");
         sb.AppendLine($"Dash: distance {DashTuning.Distance(_stats, _progress):0.00}  duration {DashTuning.Duration(_stats):0.000}s  i-frames {DashTuning.InvulnerableSeconds(_stats):0.000}s");
         sb.AppendLine($"Dashes this session: yours {_localDashes}, other players' detected {_remoteDashes}");
+        sb.AppendLine($"Run: {GameRun.Status}");
         sb.AppendLine($"Card bridge: {CardBridge.Status}");
+        sb.AppendLine($"Stats panel rows: {StatPanelRows.Status}");
         foreach (var line in CardBridge.Log) sb.AppendLine("  " + line.Replace("\n", "\n  "));
         sb.AppendLine("Card catalogue:");
         foreach (var c in _cards)

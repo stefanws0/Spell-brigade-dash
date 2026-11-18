@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Il2CppInterop.Runtime;
+using SpellBrigadeDash.Core;
 using UnityEngine;
 
 internal enum MoveMode
@@ -207,7 +208,8 @@ internal sealed class PlayerLocator
         {
             Local = local;
             _knownType ??= Il2CppNames.FindInteropType(className);
-            ModLog.Info($"Local wizard: '{local.Root.name}' via {className} ({local.LocalReason}), mode {local.Mode}, radius {local.Radius:0.00}, {Remotes.Count} other player(s).");
+            ModLog.Info($"Local wizard: '{local.Root.name}' via {className} ({local.LocalReason}), mode {local.Mode}, radius {local.Radius:0.00}, " +
+                        $"body '{(local.MainRenderer != null ? local.MainRenderer.gameObject.name : "none")}', {Remotes.Count} other player(s).");
             LocalChanged?.Invoke(local);
         }
 
@@ -413,25 +415,34 @@ internal sealed class PlayerLocator
         return 0.3f;
     }
 
+    /// <summary>The wizard's body renderer; see <see cref="BodyPick"/> (never a spell, the skinned model first).</summary>
     private static Renderer? FindMainRenderer(GameObject root)
     {
-        Renderer? best = null;
-        var bestSize = 0f;
+        var renderers = new List<Renderer>();
+        var candidates = new List<BodyPick.Candidate>();
         foreach (var r in root.GetComponentsInChildren<Renderer>(false))
         {
             if (r == null || !r.enabled) continue;
-            var isBody = r.TryCast<SpriteRenderer>() != null || r.TryCast<SkinnedMeshRenderer>() != null || r.TryCast<MeshRenderer>() != null;
-            if (!isBody) continue;
+            BodyPick.Kind kind;
+            if (r.TryCast<SkinnedMeshRenderer>() != null) kind = BodyPick.Kind.Skinned;
+            else if (r.TryCast<SpriteRenderer>() != null) kind = BodyPick.Kind.Sprite;
+            else if (r.TryCast<MeshRenderer>() != null) kind = BodyPick.Kind.Mesh;
+            else continue;
             var s = r.bounds.size;
-            var size = s.x * s.y + s.y * s.z + s.x * s.z;
-            if (size > bestSize)
-            {
-                bestSize = size;
-                best = r;
-            }
+            renderers.Add(r);
+            candidates.Add(new BodyPick.Candidate(kind, s.x * s.y + s.y * s.z + s.x * s.z, UnderSpells(r.transform, root.transform)));
         }
 
-        return best;
+        var best = BodyPick.Best(candidates);
+        return best < 0 ? null : renderers[best];
+    }
+
+    /// <summary>True if the renderer belongs to the wizard's spells (<c>PlayerSpells/...</c>), not to its body.</summary>
+    private static bool UnderSpells(Transform t, Transform root)
+    {
+        for (var cur = t; cur != null && cur.Pointer != root.Pointer; cur = cur.parent)
+            if (cur.gameObject.name.StartsWith("PlayerSpells", StringComparison.Ordinal)) return true;
+        return false;
     }
 
     private static PlayerInfo? ClosestToScreenCenter(List<PlayerInfo> players)

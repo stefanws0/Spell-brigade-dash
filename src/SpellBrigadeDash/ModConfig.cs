@@ -90,7 +90,7 @@ internal static class ModConfig
     public static ConfigEntry<float> BlazingTrailSeconds = null!;
     public static ConfigEntry<string> EtherealStepRarity = null!;
     public static ConfigEntry<bool> ShopCards = null!;
-    public static ConfigEntry<string> ShopCardStat = null!;
+    public static ConfigEntry<bool> StatsPanelRows = null!;
 
     // ---- Multiplayer ----
     public static ConfigEntry<bool> RemoteIFrames = null!;
@@ -127,7 +127,7 @@ internal static class ModConfig
 
     // ---- Internal ----
     /// <summary>Bumped when shipped defaults change; older config files get those entries reset (see Migrate).</summary>
-    private const int CurrentConfigVersion = 5;
+    private const int CurrentConfigVersion = 6;
     public static ConfigEntry<int> ConfigVersion = null!;
 
     public static void Init(ConfigFile cfg)
@@ -139,7 +139,7 @@ internal static class ModConfig
             new ConfigDescription("How long one dash takes, in seconds. Lower = snappier.", new AcceptableValueRange<float>(0.03f, 1f)));
         Charges = cfg.Bind(dash, "Charges", 1,
             new ConfigDescription("Bar segments once the dash is unlocked (before +1 Charge cards).", new AcceptableValueRange<int>(1, 6)));
-        RechargeSeconds = cfg.Bind(dash, "RechargeSeconds", 12f,
+        RechargeSeconds = cfg.Bind(dash, "RechargeSeconds", 15f,
             new ConfigDescription("Seconds to refill ONE segment (Quick Recovery cards make it faster).", new AcceptableValueRange<float>(0f, 60f)));
         IFrameGrace = cfg.Bind(dash, "IFrameGraceSeconds", 0.08f,
             new ConfigDescription("Extra invulnerability after the dash ends (the dash itself is always invulnerable).", new AcceptableValueRange<float>(0f, 1f)));
@@ -240,9 +240,8 @@ internal static class ModConfig
         EtherealStepRarity = cfg.Bind(up, "EtherealStepRarity", "Legendary", "Rarity of 'Ethereal Step' (dashes stop costing HP).");
         ShopCards = cfg.Bind(up, "ShopCards", true,
             "Offer the dash cards in the game's own level-up shop (as character cards at the rarities above).");
-        ShopCardStat = cfg.Bind(up, "ShopCardStat", "HealOnDodge",
-            "Advanced: the game stat the dash cards carry (with value 0, so picking one changes nothing in the game's stats). " +
-            "Must be a stat that starts at 0 and has no character card of its own.");
+        StatsPanelRows = cfg.Bind(up, "StatsPanelRows", true,
+            "Show the dash's stats (charges, recharge, distance, HP cost, Blazing Dash) as rows in the game's stats list (Escape screen and the hold-to-show stats panel).");
 
         const string mp = "Multiplayer";
         RemoteIFrames = cfg.Bind(mp, "RemoteIFrames", false,
@@ -333,6 +332,9 @@ internal static class ModConfig
         // health members CurrentHealth/MaxHealth first.
         if (ConfigVersion.Value < 5)
             reset.AddRange(new ConfigEntryBase[] { TraceLevelUpMethods, DamageMethods, AutoDamageHooks, HealthMembers, MaxHealthMembers });
+
+        // v6 (0.4.1): Stefan, 18 Nov: the dash recharges too fast -> 15 s per charge (was 12). Only an untouched 12 moves.
+        if (ConfigVersion.Value < 6 && System.Math.Abs(RechargeSeconds.Value - 12f) < 0.001f) reset.Add(RechargeSeconds);
 
         foreach (var entry in reset) entry.BoxedValue = entry.DefaultValue;
 

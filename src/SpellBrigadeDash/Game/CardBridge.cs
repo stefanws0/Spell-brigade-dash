@@ -23,13 +23,14 @@ using Object = UnityEngine.Object;
 /// So, with no patches on the shop itself:
 ///  * our cards are extra <c>CharacterImprovementItem</c>s in that list, kept in sync with which dash cards are
 ///    available (<see cref="DashCards.Available"/>); a card's weight is the number of copies;
-///  * each carries <see cref="ModConfig.ShopCardStat"/> with value 0: a stat that starts at 0 (heal on dodge) and has
-///    no real card, so the generator never treats a dash card as "the same" as a real one; it is added to the
-///    checker's <c>nonSpellStats</c> so it isn't filtered out;
-///  * BUT while a shop is open (and inside ChooseShopItem) our cards carry <see cref="AnalyticsSafeStat"/> instead:
-///    picking any card logs an analytics event that parses EVERY card's stat as the enum <c>ImprovementStat</c>, which
-///    has only 16 stats; HealOnDodge made the game's ChooseShopItem throw halfway (0.4.0 test, 17 Nov). Dodge + 0 is a
-///    no-op when the game applies our picked card;
+///  * the game decides "same card" (one per shop, bans) by the stat, so each dash card carries its own stats with
+///    value 0 (<see cref="ShopCarriers"/>): between shops a "rest" stat with no real card (added to the checker's
+///    <c>nonSpellStats</c> so it isn't filtered out), so a dash card is never "the same" as a real card or another
+///    dash card;
+///  * while a shop is open (and inside ChooseShopItem) they carry their "shop" stat instead: picking any card logs an
+///    analytics event that parses EVERY card's stat as the enum <c>ImprovementStat</c> (16 stats); HealOnDodge made the
+///    game's ChooseShopItem throw halfway (0.4.0 test, 17 Nov). The shop stat + 0 is a no-op when the game applies our
+///    picked card, and the rest stats are never applied;
 ///  * titles/descriptions are entries added to the game's own string table (the one holding the real cards' keys);
 ///  * the pick is seen by ONE prefix on <c>StoreManager.ChooseShopItem</c> (through <see cref="NativeCode.CanPatch"/>),
 ///    installed as soon as the shop exists (the first shop opens ~1.5 s into a run), which applies our card.
@@ -39,9 +40,6 @@ internal static class CardBridge
     private const string KeyPrefix = "SBD_Card_";
     private const float SyncInterval = 0.5f;
     private const float TextCheckInterval = 10f;
-
-    /// <summary>A stat the game's analytics enum ImprovementStat knows (see the class comment). Value 0 = no effect.</summary>
-    private const StatType AnalyticsSafeStat = StatType.Dodge;
 
     private static readonly Dictionary<IntPtr, DashCardId> OurItems = new();
     private static readonly List<CharacterImprovementItem> OurList = new();
@@ -223,10 +221,12 @@ internal static class CardBridge
         Note(sb.ToString());
     }
 
-    /// <summary>The generator drops stats no equipped spell uses unless they're in the checker's nonSpellStats list.</summary>
+    /// <summary>
+    /// The generator drops stats no equipped spell uses unless they're in the checker's nonSpellStats list, so every
+    /// card's rest stat is added there (they're not spell stats, so spell upgrades are unaffected).
+    /// </summary>
     private static void MakeStatApplicable(StoreManager manager)
     {
-        var stat = CardStat();
         try
         {
             var factory = manager.storeInventoryGeneratorFactory?.TryCast<StoreInventoryGeneratorFactory>();
@@ -234,22 +234,27 @@ internal static class CardBridge
             var list = checker?.nonSpellStats;
             if (list == null)
             {
-                Note("Shop stat: IsStatApplicableChecker.nonSpellStats not found; the dash cards may be filtered out.");
+                Note("Shop stats: IsStatApplicableChecker.nonSpellStats not found; the dash cards may be filtered out.");
                 return;
             }
 
-            if (list.Contains(stat))
+            var before = new List<string>();
+            for (var i = 0; i < list.Count; i++) before.Add(list[i].ToString());
+            var added = new List<string>();
+            foreach (DashCardId id in Enum.GetValues(typeof(DashCardId)))
             {
-                Note($"Shop stat: {stat} is already a non-spell stat.");
-                return;
+                var stat = RestStat(id);
+                if (list.Contains(stat)) continue;
+                list.Add(stat);
+                added.Add(stat.ToString());
             }
 
-            list.Add(stat);
-            Note($"Shop stat: added {stat} to IsStatApplicableChecker.nonSpellStats so the dash cards aren't filtered out.");
+            Note($"Shop stats: the game's non-spell stats were [{string.Join(", ", before)}]; added [{string.Join(", ", added)}] " +
+                 "so the dash cards aren't filtered out.");
         }
         catch (Exception ex)
         {
-            Note($"Shop stat: couldn't check {stat} ({ex.Message}).");
+            Note($"Shop stats: couldn't update nonSpellStats ({ex.Message}).");
         }
     }
 
@@ -267,8 +272,9 @@ internal static class CardBridge
             var copies = Copies(card);
             for (var i = 0; i < copies; i++)
             {
-                var stat = _carryingSafeStat ? AnalyticsSafeStat : CardStat();
-                var item = new CharacterImprovementItem(TitleKey(card.Id), DescriptionKey(card.Id), stat, 0f, Rarity(card), _icon!, 1e9f);
+                var stat = _carryingSafeStat ? ShopStat(card.Id) : RestStat(card.Id);
+                var icon = CardIcons.For(card.Id) ?? _icon;
+                var item = new CharacterImprovementItem(TitleKey(card.Id), DescriptionKey(card.Id), stat, 0f, Rarity(card), icon!, 1e9f);
                 list.Add(item);
                 OurList.Add(item);
                 OurItems[item.Pointer] = card.Id;
@@ -283,19 +289,18 @@ internal static class CardBridge
     }
 
     /// <summary>
-    /// Switch our cards between the carrier stat (between shops) and <see cref="AnalyticsSafeStat"/> (while a shop is
-    /// open or a card is being chosen), see the class comment. Only our own objects are touched.
+    /// Switch our cards between their rest stat (between shops) and their shop stat (while a shop is open or a card is
+    /// being chosen), see <see cref="ShopCarriers"/>. Only our own objects are touched.
     /// </summary>
     private static void SetCarrier(bool safe, string why)
     {
         if (_carryingSafeStat == safe) return;
         _carryingSafeStat = safe;
-        var stat = safe ? AnalyticsSafeStat : CardStat();
         foreach (var item in OurList)
         {
             try
             {
-                item._Stat_k__BackingField = stat;
+                if (OurItems.TryGetValue(item.Pointer, out var id)) item._Stat_k__BackingField = safe ? ShopStat(id) : RestStat(id);
             }
             catch
             {
@@ -303,12 +308,12 @@ internal static class CardBridge
             }
         }
 
-        ModLog.StepOnce("carrier-" + safe, $"cards: carrier stat -> {stat} ({why})");
+        ModLog.StepOnce("carrier-" + safe, $"cards: carrier stats -> {(safe ? "shop" : "rest")} stats ({why})");
     }
 
     /// <summary>
-    /// One-off check of how the game compares cards (logged, decides whether our shared carrier stat matters):
-    /// two dash cards with the same stat, and a Dodge-carrying card against the game's own Dodge card.
+    /// One-off check of how the game compares cards (logged): two dash cards with their own rest stats (should be
+    /// different cards), two copies with the same stat (the same card), and a Dodge-carrying card vs the real Dodge card.
     /// </summary>
     private static void ProbeEquivalence(Il2CppSystem.Collections.Generic.List<StoreItem> list)
     {
@@ -322,11 +327,13 @@ internal static class CardBridge
                 if (it != null && !OurItems.ContainsKey(it.Pointer) && it.Stat == StatType.Dodge && it.Rarity == RarityType.Common) realDodge = it;
             }
 
-            var a = new CharacterImprovementItem("SBD_Probe_A", "SBD_Probe_A", CardStat(), 0f, RarityType.Common, _icon!, 1e9f);
-            var b = new CharacterImprovementItem("SBD_Probe_B", "SBD_Probe_B", CardStat(), 0f, RarityType.Epic, _icon!, 1e9f);
+            var a = new CharacterImprovementItem("SBD_Probe_A", "SBD_Probe_A", RestStat(DashCardId.ExtraCharge), 0f, RarityType.Common, _icon!, 1e9f);
+            var a2 = new CharacterImprovementItem("SBD_Probe_A2", "SBD_Probe_A2", RestStat(DashCardId.ExtraCharge), 0f, RarityType.Epic, _icon!, 1e9f);
+            var b = new CharacterImprovementItem("SBD_Probe_B", "SBD_Probe_B", RestStat(DashCardId.QuickRecovery), 0f, RarityType.Common, _icon!, 1e9f);
             var d = new CharacterImprovementItem("SBD_Probe_D", "SBD_Probe_D", StatType.Dodge, 0f, RarityType.Common, _icon!, 1e9f);
             var sb = new StringBuilder("Shop card comparison (game's own rules): ");
-            sb.Append($"two dash cards with the same stat: equivalent={a.IsEquivalentIgnoringRarity(b)}, same-for-bans={CharacterImprovementBanRule.IsSame(a, b)}");
+            sb.Append($"two different dash cards: equivalent={a.IsEquivalentIgnoringRarity(b)}, same-for-bans={CharacterImprovementBanRule.IsSame(a, b)}");
+            sb.Append($"; two copies of one dash card: equivalent={a.IsEquivalentIgnoringRarity(a2)}, same-for-bans={CharacterImprovementBanRule.IsSame(a, a2)}");
             if (realDodge != null)
                 sb.Append($"; a Dodge-carrying dash card vs the real Dodge card: equivalent={d.IsEquivalentIgnoringRarity(realDodge)}, " +
                           $"same-for-bans={CharacterImprovementBanRule.IsSame(d, realDodge)}");
@@ -470,11 +477,17 @@ internal static class CardBridge
 
     private static string DescriptionKey(DashCardId id) => KeyPrefix + id + "_Description";
 
-    private static StatType CardStat()
+    /// <summary>The card's stat between shops (see <see cref="ShopCarriers"/>).</summary>
+    private static StatType RestStat(DashCardId id) => ParseStat(ShopCarriers.RestStat(id), StatType.HealOnDodge);
+
+    /// <summary>The card's stat while a shop is open / a card is picked: one the game's analytics accept.</summary>
+    private static StatType ShopStat(DashCardId id) => ParseStat(ShopCarriers.ShopStat(id), StatType.Dodge);
+
+    private static StatType ParseStat(string name, StatType fallback)
     {
-        if (Enum.TryParse<StatType>(ModConfig.ShopCardStat.Value.Trim(), true, out var stat)) return stat;
-        ModLog.WarnOnce("shop-stat", $"Upgrades.ShopCardStat '{ModConfig.ShopCardStat.Value}' isn't a StatType; using HealOnDodge.");
-        return StatType.HealOnDodge;
+        if (Enum.TryParse<StatType>(name, false, out var stat)) return stat;
+        ModLog.WarnOnce("shop-stat-" + name, $"Dash cards: the game has no stat '{name}' (game update?); using {fallback}.");
+        return fallback;
     }
 
     private static RarityType Rarity(DashCardDef card)

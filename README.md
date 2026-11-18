@@ -8,7 +8,7 @@ All design decisions are in [`docs/DESIGN.md`](docs/DESIGN.md).
 | | |
 |---|---|
 | Dash | ~3 units in 0.12 s in your movement direction, i-frames during the dash, stops at walls |
-| Energy | 1 charge that refills in 12 s (more with cards). Rounded violet bar: fades out when full, flashes on refill, shakes on an empty press |
+| Energy | 1 charge that refills in 15 s (more with cards). Rounded violet bar: fades out when full, flashes on refill, shakes on an empty press |
 | Cost | Each dash costs 5% of max HP (never your last point) until the Legendary **Ethereal Step** card |
 | Effects | Violet glowing afterimages, arcane sparkles, speed streaks, dust burst, a whoosh reused from the game's own sounds; Blazing Dash leaves flickering flames with embers |
 | Cards | **Dash** (Epic, unlock) · **+1 Charge** (Legendary) · **Quick Recovery** (Epic) · **Long Stride** (Epic) · **Blazing Dash** (Legendary) · **Ethereal Step** (Legendary, no HP cost) |
