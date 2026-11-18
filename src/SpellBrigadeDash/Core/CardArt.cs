@@ -4,7 +4,7 @@ using System.Text;
 
 /// <summary>
 /// File names of the cards' own icons: <c>art/icons/&lt;name&gt;.png</c> in the repo (embedded in the DLL) and, as an
-/// override for trying new art without a rebuild, <c>BepInEx/plugins/SpellBrigadeDash/icons/&lt;name&gt;.png</c>.
+/// override for trying new art without a rebuild, <c>icons/&lt;name&gt;.png</c> next to the mod's DLL.
 /// </summary>
 public static class CardArt
 {

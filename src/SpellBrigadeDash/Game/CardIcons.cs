@@ -9,8 +9,8 @@ using UnityEngine;
 
 /// <summary>
 /// The dash cards' own icons (round white-on-black badges in the style of the game's card icons). Each is looked up
-/// as <c>BepInEx/plugins/SpellBrigadeDash/icons/&lt;name&gt;.png</c> first (to try new art without a rebuild), then as
-/// a PNG embedded in the DLL from <c>art/icons</c>. Missing icon = null, and the shop card keeps the borrowed game icon.
+/// as <c>icons/&lt;name&gt;.png</c> next to the mod's DLL first (to try new art without a rebuild), then as a PNG
+/// embedded in the DLL from <c>art/icons</c>. Missing icon = null, and the shop card keeps the borrowed game icon.
 /// </summary>
 internal static class CardIcons
 {
@@ -18,7 +18,18 @@ internal static class CardIcons
 
     private static readonly Dictionary<DashCardId, Sprite?> Cache = new();
 
-    public static string OverrideFolder => Path.Combine(Paths.PluginPath, "SpellBrigadeDash", "icons");
+    /// <summary>
+    /// The <c>icons</c> folder next to the DLL, whatever the mod manager named the plugin folder (r2modman installs
+    /// into <c>plugins/&lt;Team&gt;-&lt;Package&gt;</c>, a manual install into <c>plugins/SpellBrigadeDash</c>).
+    /// </summary>
+    public static string OverrideFolder
+    {
+        get
+        {
+            var dir = Path.GetDirectoryName(typeof(CardIcons).Assembly.Location);
+            return Path.Combine(string.IsNullOrEmpty(dir) ? Path.Combine(Paths.PluginPath, "SpellBrigadeDash") : dir, "icons");
+        }
+    }
 
     public static Sprite? For(DashCardId card)
     {
