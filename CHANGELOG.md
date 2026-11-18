@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1
+
+- Thunderstore icon is now the Dash card's art (`art/icons/dash.png`), Stefan's choice; 0.5.0 was uploaded with the old
+  generic icon. No code changes.
+
 ## 0.5.0 (first release)
 
 - **Test aids off by default** (Stefan, 18 Nov): the discovery report and its extra log detail (`[Discovery] Enabled`:

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- New icon: the Dash card's art.
+
 ## 0.5.0
 
 First release.

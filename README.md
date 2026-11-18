@@ -14,7 +14,7 @@ All design decisions are in [`docs/DESIGN.md`](docs/DESIGN.md).
 | Cards | **Dash** (Epic, unlock) · **+1 Charge** (Legendary) · **Quick Recovery** (Epic) · **Long Stride** (Epic) · **Blazing Dash** (Legendary) · **Ethereal Step** (Legendary, no HP cost) |
 | Co-op | Everyone installs it. Other players' dashes are detected from movement, so they get i-frames too |
 
-## Status: first release (0.5.0)
+## Status: first release (0.5.1)
 
 The dash cards are in the game's own level-up shop at their real rarities, and **every run starts without the dash**:
 pick the **Dash** card first (5 copies in the shop, so it turns up more often than other Epic cards), then the
