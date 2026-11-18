@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// Where Blazing Dash's fire burns and when each enemy standing in it may be hit again (agreed with Stefan 18 Nov: a
+/// Where Blazing Dash's fire burns and when each enemy standing in it may be hit again (agreed with the owner 18 Nov: a
 /// tick every 0.5 s, so up to three hits in a 1.5 s trail). Flames live on the ground plane (x/z); an enemy counts as
 /// in the fire when its footprint touches a flame. One timer per enemy, shared by all flames, so overlapping trails
 /// never stack. Pure, unit-tested.

@@ -64,7 +64,7 @@
     <Message Importance="high" Text="Deployed to $(BepInExDir)\plugins\SpellBrigadeDash" />
   </Target>
 
-  <!-- dotnet build -c Release -t:Package  → dist/SpellBrigadeDash-<version>.zip, ready for r2modman/Gale/Thunderstore -->
+  <!-- dotnet build -c Release -t:Package  → dist/Dash-<version>.zip, ready for r2modman/Gale/Thunderstore -->
   <Target Name="Package" DependsOnTargets="Build">
     <PropertyGroup>
       <RepoRoot>$(MSBuildThisFileDirectory)..\..\</RepoRoot>
@@ -75,8 +75,8 @@
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(StageDir)" />
     <Copy SourceFiles="$(RepoRoot)thunderstore\manifest.json;$(RepoRoot)thunderstore\icon.png;$(RepoRoot)thunderstore\README.md;$(RepoRoot)thunderstore\CHANGELOG.md" DestinationFolder="$(StageDir)" />
     <MakeDir Directories="$(DistDir)" />
-    <ZipDirectory SourceDirectory="$(StageDir)" DestinationFile="$(DistDir)SpellBrigadeDash-$(Version).zip" Overwrite="true" />
-    <Message Importance="high" Text="Package: $(DistDir)SpellBrigadeDash-$(Version).zip" />
+    <ZipDirectory SourceDirectory="$(StageDir)" DestinationFile="$(DistDir)Dash-$(Version).zip" Overwrite="true" />
+    <Message Importance="high" Text="Package: $(DistDir)Dash-$(Version).zip" />
   </Target>
 
 </Project>

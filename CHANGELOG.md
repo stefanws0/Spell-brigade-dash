@@ -2,12 +2,19 @@
 
 ## 0.5.1
 
-- Thunderstore icon is now the Dash card's art (`art/icons/dash.png`), Stefan's choice; 0.5.0 was uploaded with the old
-  generic icon. No code changes.
+- Thunderstore icon is now the Dash card's art (`art/icons/dash.png`), the owner's choice; 0.5.0 was uploaded with the old
+  generic icon.
+- Thunderstore package name `Dash` (0.5.0 went up as `SpellBrigadeDash`; the owner wanted it short, and Thunderstore
+  names allow no dashes or spaces). A new package on Thunderstore; the old listing stays until deprecated. The
+  BepInEx GUID and so the config file are unchanged. Zip: `dist/Dash-<version>.zip`.
+- The repo is public now; the manifest and the Thunderstore README link to it. The owner's name and Windows paths
+  were taken out of the docs and comments first.
+- The card-icon override folder is `icons/` next to the DLL (was a hard-wired `plugins/SpellBrigadeDash/icons`,
+  which an r2modman install folder never matches).
 
 ## 0.5.0 (first release)
 
-- **Test aids off by default** (Stefan, 18 Nov): the discovery report and its extra log detail (`[Discovery] Enabled`:
+- **Test aids off by default** (the owner, 18 Nov): the discovery report and its extra log detail (`[Discovery] Enabled`:
   shop contents, stats panel layout, enemy health, fire damage summaries, per-dash debug lines) and the debug hotkeys
   (`[Debug] Hotkeys`). Config v10 switches both off in existing configs; turn them on again for testing.
 - Thunderstore package: release README (how to get the dash, what each card does, co-op not yet tested), manifest
@@ -15,20 +22,20 @@
 
 ## 0.4.4
 
-- **The Dash card shows up more often: 5 copies in the shop** (Stefan, 18 Nov); the upgrade cards keep one copy each
+- **The Dash card shows up more often: 5 copies in the shop** (the owner, 18 Nov); the upgrade cards keep one copy each
   so they stay occasional. Measured over 77 of the game's improvement shops: one Epic copy would have shown the Dash
   card about once in three runs. Config v9 moves an untouched `Upgrades.DashUnlockWeight = 1` to 5. Not yet seen in a run.
 
 ## 0.4.3
 
-- **Test mode off** (Stefan, 18 Nov, as agreed in HANDOFF): runs start without the dash (`Debug.StartRunWithDash =
+- **Test mode off** (the owner, 18 Nov, as agreed in HANDOFF): runs start without the dash (`Debug.StartRunWithDash =
   false`), and the dash cards come at their real rarities with one copy each (`Debug.ShopCardTestMode = false`): Dash,
   Quick Recovery and Long Stride Epic; +1 Charge, Blazing Dash and Ethereal Step Legendary. Config v8 switches both
   off in existing configs; turn them on again under `[Debug]` for testing. READMEs updated (no more "discovery build").
 
 ## 0.4.2
 
-- **Blazing Dash's fire now hurts enemies** (rules agreed with Stefan, 18 Nov). Enemies standing in a flame take a
+- **Blazing Dash's fire now hurts enemies** (rules agreed with the owner, 18 Nov). Enemies standing in a flame take a
   fire hit every 0.5 s, so up to three in a 1.5 s trail (`Core/BlazeTicks`, unit-tested; one timer per enemy, so
   overlapping trails never stack). Base damage per tick = the game's own Trail spell's base damage (33.81), read live
   from its `SpellConfiguration`; scaled by your character's Damage % (`Core/BlazeMath.StatMultiplier`, unit-tested);
@@ -44,7 +51,7 @@
 
 ## 0.4.1
 
-- **Balance: the dash recharges in 15 s per charge** (was 12; Stefan, 18 Nov). Fully upgraded (3x Quick Recovery):
+- **Balance: the dash recharges in 15 s per charge** (was 12; the owner, 18 Nov). Fully upgraded (3x Quick Recovery):
   8.6 s instead of 6.9 s. Config v6 moves an untouched `Dash.RechargeSeconds = 12` to 15; a custom value is kept.
 - **Each dash card is its own card in the shop.** The game decides "same card" (one per shop, bans) by a card's
   stat, and all dash cards shared one, so a shop showed at most one dash card and banning one banned them all. Each
@@ -67,7 +74,7 @@
   First try (fitting to the list's own box) failed: that box runs ~250 px past the visible frame, off the bottom of
   the screen. Measured on screen (18 Nov), the in-game frame holds exactly 15 rows at the game's spacing, so the rows
   are now fitted into that (`ListFit.DesignedRoom`), less half a row so the last row keeps some space above the
-  frame's bottom edge (Stefan asked for it after seeing the 17 rows fit). Rows then sit 16-21% closer together. Each panel logs its real
+  frame's bottom edge (the owner asked for it after seeing the 17 rows fit). Rows then sit 16-21% closer together. Each panel logs its real
   on-screen layout once ("measured on screen"), including the rest of its canvas. Escape menu: dash rows not seen
   until 18 Nov 16:06, then verified: they are on the Escape menu's Player page (its round wizard-hat button opens the
   list; the menu's front page has no stats list, which is why they seemed missing). The log says when the Escape menu

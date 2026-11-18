@@ -338,23 +338,23 @@ internal static class ModConfig
         if (ConfigVersion.Value < 5)
             reset.AddRange(new ConfigEntryBase[] { TraceLevelUpMethods, DamageMethods, AutoDamageHooks, HealthMembers, MaxHealthMembers });
 
-        // v6 (0.4.1): Stefan, 18 Nov: the dash recharges too fast -> 15 s per charge (was 12). Only an untouched 12 moves.
+        // v6 (0.4.1): the owner, 18 Nov: the dash recharges too fast -> 15 s per charge (was 12). Only an untouched 12 moves.
         if (ConfigVersion.Value < 6 && System.Math.Abs(RechargeSeconds.Value - 12f) < 0.001f) reset.Add(RechargeSeconds);
 
-        // v7 (0.4.2): Blazing Dash damage agreed with Stefan, 18 Nov: base = the game's Trail spell (0). Only an untouched 15 moves.
+        // v7 (0.4.2): Blazing Dash damage agreed with the owner, 18 Nov: base = the game's Trail spell (0). Only an untouched 15 moves.
         if (ConfigVersion.Value < 7 && System.Math.Abs(BlazingDashDamage.Value - 15f) < 0.001f) reset.Add(BlazingDashDamage);
 
-        // v8 (0.4.3): Stefan, 18 Nov: test mode off. Runs start without the dash, the cards come at their real rarities.
+        // v8 (0.4.3): the owner, 18 Nov: test mode off. Runs start without the dash, the cards come at their real rarities.
         if (ConfigVersion.Value < 8)
         {
             if (StartRunWithDash.Value) reset.Add(StartRunWithDash);
             if (ShopCardTestMode.Value) reset.Add(ShopCardTestMode);
         }
 
-        // v9 (0.4.4): Stefan, 18 Nov: only the Dash card comes more often (5 copies); the upgrades stay at one copy.
+        // v9 (0.4.4): the owner, 18 Nov: only the Dash card comes more often (5 copies); the upgrades stay at one copy.
         if (ConfigVersion.Value < 9 && System.Math.Abs(UnlockWeight.Value - 1f) < 0.001f) reset.Add(UnlockWeight);
 
-        // v10 (0.5.0, first release): Stefan, 18 Nov: diagnostics and debug hotkeys off by default.
+        // v10 (0.5.0, first release): the owner, 18 Nov: diagnostics and debug hotkeys off by default.
         if (ConfigVersion.Value < 10)
         {
             if (DiscoveryEnabled.Value) reset.Add(DiscoveryEnabled);

@@ -11,7 +11,7 @@ public class DashCardsTests
     [Fact]
     public void Only_the_Dash_card_comes_in_extra_copies()
     {
-        // Stefan, 18 Nov: one Epic copy would show the Dash card about once in three runs, so it gets 5 copies; the
+        // The owner, 18 Nov: one Epic copy would show the Dash card about once in three runs, so it gets 5 copies; the
         // upgrades stay at one copy each ("I want them in there occasionally").
         var cards = DashCards.Build(Settings);
         Assert.Equal(5f, cards.Single(c => c.Id == DashCardId.Dash).Weight);

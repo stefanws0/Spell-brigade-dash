@@ -41,3 +41,7 @@ stack limits, and more. `[Debug]` has test aids (start every run with the dash, 
 
 - The mod logs to `BepInEx/SpellBrigadeDash.log`. Turn on `[Discovery] Enabled` for more detail.
 - If the game crashes with the mod, set `[Debug] SafeMode = true`: no game patches at all (no i-frames), only the dash itself.
+
+## Source and bug reports
+
+https://github.com/stefanws0/Spell-brigade-dash

@@ -5,7 +5,7 @@ using Xunit;
 
 public class BlazeTicksTests
 {
-    // Agreed with Stefan 18 Nov: a tick every 0.5 s on enemies standing in a flame; the trail lasts 1.5 s.
+    // Agreed with the owner 18 Nov: a tick every 0.5 s on enemies standing in a flame; the trail lasts 1.5 s.
     private static BlazeTicks Ticks() => new(0.5f);
 
     [Fact]

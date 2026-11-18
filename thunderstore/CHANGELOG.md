@@ -3,6 +3,8 @@
 ## 0.5.1
 
 - New icon: the Dash card's art.
+- New package name: **Dash** (0.5.0 was "SpellBrigadeDash"). Uninstall the old one if you have it.
+- The source is on GitHub now: https://github.com/stefanws0/Spell-brigade-dash
 
 ## 0.5.0
 

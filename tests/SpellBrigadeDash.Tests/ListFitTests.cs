@@ -48,7 +48,7 @@ public class ListFitTests
     [Fact]
     public void Half_a_row_less_room_leaves_half_a_row_of_margin()
     {
-        // 18 Nov: with 15 rows of room the last row touched the frame's bottom edge; Stefan wanted a little more space.
+        // 18 Nov: with 15 rows of room the last row touched the frame's bottom edge; the owner wanted a little more space.
         Assert.Equal(1239f - 0.5f * (70f + 13.5f), ListFit.DesignedRoom(14.5f, 70f, 13.5f), 3);
     }
 

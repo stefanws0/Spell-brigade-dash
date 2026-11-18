@@ -8,7 +8,7 @@ using UnityEngine;
 using Object = UnityEngine.Object;
 
 /// <summary>
-/// Blazing Dash's fire hurts enemies (rules agreed with Stefan, 18 Nov): enemies standing in a flame take a fire hit
+/// Blazing Dash's fire hurts enemies (rules agreed with the owner, 18 Nov): enemies standing in a flame take a fire hit
 /// every 0.5 s (<see cref="BlazeTicks"/>), up to three per 1.5 s trail. Base damage per tick = the game's own Trail
 /// spell's base damage (or <c>Upgrades.BlazingDashDamage</c> when set), scaled by your character's Damage % (the stat
 /// in the stats list), crits rolled by the game, the game's fire burn on top. Spell Size widens the flames.

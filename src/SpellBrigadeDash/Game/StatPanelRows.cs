@@ -26,7 +26,7 @@ internal static class StatPanelRows
 
     /// <summary>
     /// Rows of room in the game's stats frame at its own spacing. The frame holds exactly 15 (measured 18 Nov, see
-    /// <see cref="ListFit.DesignedRoom"/>), but filled to its edge the last row touched the frame (Stefan, 18 Nov:
+    /// <see cref="ListFit.DesignedRoom"/>), but filled to its edge the last row touched the frame (the owner, 18 Nov:
     /// "a little more space to the bottom"), so half a row is left free.
     /// </summary>
     private const float DesignedRows = 14.5f;
@@ -38,7 +38,7 @@ internal static class StatPanelRows
     private static bool _off;
     private static string _shown = "";
 
-    // 18 Nov diagnostics: the Escape menu's list never came on screen in three runs while Stefan saw no dash rows there.
+    // 18 Nov diagnostics: the Escape menu's list never came on screen in three runs while the owner saw no dash rows there.
     private const int PauseLogLines = 400;
     private static PauseMenuManager? _pause;
     private static bool _pauseOpen;
