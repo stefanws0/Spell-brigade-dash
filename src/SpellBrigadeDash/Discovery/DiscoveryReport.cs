@@ -237,6 +237,9 @@ internal static class DiscoveryReport
         Section("18. Level-up shop (for wiring the dash cards)");
         Try("store", () => DescribeStore(sb));
 
+        Section("19. The game's damage numbers (to balance Blazing Dash's fire)");
+        Try("damage reference", () => DamageReference.Describe(sb));
+
         var text = sb.Length > MaxChars ? sb.ToString(0, MaxChars) + "\n...(truncated)" : sb.ToString();
         File.WriteAllText(Path, text);
         ModLog.Info($"Discovery report written to {Path} ({text.Length / 1024} KB).");

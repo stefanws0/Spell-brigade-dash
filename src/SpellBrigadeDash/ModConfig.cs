@@ -127,7 +127,7 @@ internal static class ModConfig
 
     // ---- Internal ----
     /// <summary>Bumped when shipped defaults change; older config files get those entries reset (see Migrate).</summary>
-    private const int CurrentConfigVersion = 6;
+    private const int CurrentConfigVersion = 7;
     public static ConfigEntry<int> ConfigVersion = null!;
 
     public static void Init(ConfigFile cfg)
@@ -235,7 +235,9 @@ internal static class ModConfig
         LongStrideMaxStacks = cfg.Bind(up, "LongStrideMaxStacks", 2, "How many times 'Long Stride' can be taken per run.");
         LongStridePerStack = cfg.Bind(up, "LongStridePerStack", 0.30f, "Distance bonus per 'Long Stride' (0.30 = 30% farther).");
         BlazingDashRarity = cfg.Bind(up, "BlazingDashRarity", "Legendary", "Rarity of 'Blazing Dash'.");
-        BlazingDashDamage = cfg.Bind(up, "BlazingDashDamage", 15f, "Damage per tick of the Blazing Dash trail (applied once the game's damage hook is wired).");
+        BlazingDashDamage = cfg.Bind(up, "BlazingDashDamage", 0f,
+            "Fire damage per tick (every 0.5 s) to enemies in the Blazing Dash trail, before your Damage % and crits. " +
+            "0 = the same as the game's own Trail spell (recommended).");
         BlazingTrailSeconds = cfg.Bind(up, "BlazingTrailSeconds", 1.5f, "How long the Blazing Dash trail stays on the ground.");
         EtherealStepRarity = cfg.Bind(up, "EtherealStepRarity", "Legendary", "Rarity of 'Ethereal Step' (dashes stop costing HP).");
         ShopCards = cfg.Bind(up, "ShopCards", true,
@@ -335,6 +337,9 @@ internal static class ModConfig
 
         // v6 (0.4.1): Stefan, 18 Nov: the dash recharges too fast -> 15 s per charge (was 12). Only an untouched 12 moves.
         if (ConfigVersion.Value < 6 && System.Math.Abs(RechargeSeconds.Value - 12f) < 0.001f) reset.Add(RechargeSeconds);
+
+        // v7 (0.4.2): Blazing Dash damage agreed with Stefan, 18 Nov: base = the game's Trail spell (0). Only an untouched 15 moves.
+        if (ConfigVersion.Value < 7 && System.Math.Abs(BlazingDashDamage.Value - 15f) < 0.001f) reset.Add(BlazingDashDamage);
 
         foreach (var entry in reset) entry.BoxedValue = entry.DefaultValue;
 

@@ -34,8 +34,11 @@ internal sealed class GameFireTrail
     /// <summary>False once the game's fire turned out to be unusable (then the sprite flames are used).</summary>
     public bool Usable => !_broken && ModConfig.GameFireTrail.Value;
 
-    /// <summary>Light one of the game's fires at <paramref name="ground"/> for <paramref name="life"/> seconds (game time).</summary>
-    public bool TrySpawn(PlayerInfo p, Vector3 ground, Transform parent, float life, float now)
+    /// <summary>
+    /// Light one of the game's fires at <paramref name="ground"/> for <paramref name="life"/> seconds (game time),
+    /// <paramref name="sizeScale"/> times its normal size (Spell Size).
+    /// </summary>
+    public bool TrySpawn(PlayerInfo p, Vector3 ground, Transform parent, float life, float now, float sizeScale = 1f)
     {
         if (!Usable) return false;
         try
@@ -49,7 +52,7 @@ internal sealed class GameFireTrail
             var tr = flame.Go.transform;
             tr.position = ground + t.Offset;
             tr.rotation = t.Rotation * Quaternion.Euler(0f, (float)_rng.NextDouble() * 360f, 0f);
-            var scale = Math.Max(0.05f, ModConfig.GameFireScale.Value) * (0.9f + 0.2f * (float)_rng.NextDouble());
+            var scale = Math.Max(0.05f, ModConfig.GameFireScale.Value) * Mathf.Clamp(sizeScale, 0.5f, 4f) * (0.9f + 0.2f * (float)_rng.NextDouble());
             tr.localScale = t.Scale * scale;
 
             ModLog.StepOnce("game-fire-play", "fx: first game fire (FireVisualizer.PlayEffect)");

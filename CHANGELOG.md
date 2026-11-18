@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.2
+
+- **Blazing Dash's fire now hurts enemies** (rules agreed with Stefan, 18 Nov). Enemies standing in a flame take a
+  fire hit every 0.5 s, so up to three in a 1.5 s trail (`Core/BlazeTicks`, unit-tested; one timer per enemy, so
+  overlapping trails never stack). Base damage per tick = the game's own Trail spell's base damage (33.81), read live
+  from its `SpellConfiguration`; scaled by your character's Damage % (`Core/BlazeMath.StatMultiplier`, unit-tested);
+  crits rolled by the game; the game's fire burn follows (3 burns of 0.33 x the hit). First test (16:37 run): hits
+  landed (33.8 each, a Flesh Crab burnt to 0), but `PlayerStats.GetSpellValue(Trail, ...)` throws for a wizard
+  without a Trail, so Damage %, Spell Size and crits were missing: they now come from your character stats, and hits
+  are credited to your Trail if you own one, else to your first spell (whose damage counter then includes them). The hit
+  goes through the game's own `Hitbox.Hit` with a `PlayerSpellDamageInfo` (`Game/BlazeDamage`), on enemies only
+  (`Enemy.AllEnemies`), never on you or teammates. No patches. Spell Size widens the flames and their reach.
+  `Upgrades.BlazingDashDamage` is now 0 = "same as the Trail spell" (config v7 moves an untouched 15).
+- **Discovery report section 19**: the game's damage numbers (every spell's base stats, fire burn, lava zone, meteor
+  area, enemy health) and an "Enemy health now" log line each minute while enemies are around (`Discovery/DamageReference`).
+
 ## 0.4.1
 
 - **Balance: the dash recharges in 15 s per charge** (was 12; Stefan, 18 Nov). Fully upgraded (3x Quick Recovery):

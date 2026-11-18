@@ -48,7 +48,7 @@ public sealed class DashCardSettings
     public float LongStridePerStack { get; set; } = 0.30f;
 
     public string BlazingDashRarity { get; set; } = "Legendary";
-    public float BlazingDashDamage { get; set; } = 15f;
+    public float BlazingDashDamage { get; set; }
 
     public string EtherealStepRarity { get; set; } = "Legendary";
 

@@ -11,6 +11,8 @@ namespace Unity.Netcode
     public class NetworkBehaviour : MonoBehaviour
     {
         public NetworkBehaviour(IntPtr pointer) : base(pointer) { }
+        public bool IsOwner => false;
+        public ulong OwnerClientId => 0;
     }
 }
 
@@ -80,6 +82,156 @@ public class PlayerStatEntry : MonoBehaviour
     public UnityEngine.UI.Image statIcon => null;
     public UnityEngine.Localization.Components.LocalizeStringEvent statTitle => null;
     public TMPro.TMP_Text valueText => null;
+}
+
+// The game's damage numbers (Discovery/DamageReference.cs).
+public enum SpellType
+{
+    Orb, Boomerang, EnergyZone, Laser, Proximity, Shotgun, Rifle, Smg, Trail, BombLauncher, FallingStar, Mine, Fence, Beam,
+    Arrow, Plant, Summon, Slash, Meteor, Book, Bell, Clap, Dice, Splinter, Sawblade,
+}
+
+public class BaseStat : Il2CppSystem.Object
+{
+    public BaseStat(IntPtr pointer) : base(pointer) { }
+    public StatType Stat => default;
+    public float Value => 0f;
+}
+
+public class SpellConfiguration : ScriptableObject
+{
+    public SpellConfiguration(IntPtr pointer) : base(pointer) { }
+    public SpellType SpellType => default;
+    public Il2CppSystem.Collections.Generic.List<BaseStat> Stats => null;
+}
+
+public class FireEffectConfiguration : Il2CppSystem.Object
+{
+    public FireEffectConfiguration(IntPtr pointer) : base(pointer) { }
+    public float BurnDamageFactor => 0f;
+    public int NumberOfBurns => 0;
+    public float SecondsBetweenBurns => 0f;
+}
+
+public class FireDoubleEffectConfiguration : Il2CppSystem.Object
+{
+    public FireDoubleEffectConfiguration(IntPtr pointer) : base(pointer) { }
+    public float BurnDamageFactor => 0f;
+    public int NumberOfBurns => 0;
+    public float SecondsBetweenBurns => 0f;
+}
+
+public class ElementEffectConfiguration : ScriptableObject
+{
+    public ElementEffectConfiguration(IntPtr pointer) : base(pointer) { }
+    public FireEffectConfiguration FireEffectConfiguration => null;
+    public FireDoubleEffectConfiguration FireDoubleEffectConfiguration => null;
+}
+
+public class LavaZoneConfiguration : ScriptableObject
+{
+    public LavaZoneConfiguration(IntPtr pointer) : base(pointer) { }
+    public float TimeBetweenTicks => 0f;
+    public int BaseDamageForPlayer => 0;
+    public int BaseDamageForEnemy => 0;
+    public float GetEnemyDamageForEnemy(int tick) => 0f;
+}
+
+public class MeteorDamageArea : MonoBehaviour
+{
+    public MeteorDamageArea(IntPtr pointer) : base(pointer) { }
+    public int numberOfDamageTicks => 0;
+    public float secondsBetweenDamageTicks => 0f;
+    public float damageRadiusMultiplier => 0f;
+    public float damageDivider => 0f;
+    public float damageRadius => 0f;
+}
+
+public class HealthContainer : Unity.Netcode.NetworkBehaviour
+{
+    public HealthContainer(IntPtr pointer) : base(pointer) { }
+    public float MaxHealth => 0f;
+    public float CurrentHealth => 0f;
+}
+
+public class EnemyHealthContainer : HealthContainer
+{
+    public EnemyHealthContainer(IntPtr pointer) : base(pointer) { }
+    public float maxHealth => 0f;
+    public bool IsBoss => false;
+}
+
+// Blazing Dash's fire damage (Game/BlazeDamage.cs).
+public enum ElementType
+{
+    None, Fire, FireDouble, Lightning, LightningDouble, FireLightning, Acid, AcidDouble, AcidFire, AcidLightning, Ice, IceDouble,
+    FireIce, AcidIce, IceLightning, Dark, DarkDouble, DarkFire, DarkLightning, AcidDark, DarkIce,
+}
+
+public class DamageInfo : Il2CppSystem.Object
+{
+    public DamageInfo(IntPtr pointer) : base(pointer) { }
+    public float Damage { get; set; }
+    public ElementType Element { get; set; }
+}
+
+public class PlayerDamageInfo : DamageInfo
+{
+    public PlayerDamageInfo(IntPtr pointer) : base(pointer) { }
+}
+
+public class PlayerSpellDamageInfo : PlayerDamageInfo
+{
+    public PlayerSpellDamageInfo(IntPtr pointer) : base(pointer) { }
+    public PlayerSpellDamageInfo(ulong ownerClientId, SpellType spell) : base(IntPtr.Zero) { }
+    public PlayerSpellDamageInfo(ulong ownerClientId, SpellType spell, IPlayerStats stats) : base(IntPtr.Zero) { }
+}
+
+public class IPlayerStats : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase
+{
+    public IPlayerStats(IntPtr pointer) : base(pointer) { }
+}
+
+public enum StatCalculationType { PercentAdd, Flat, PercentAddLogarithmic }
+
+public class Stat : Il2CppSystem.Object
+{
+    public Stat(IntPtr pointer) : base(pointer) { }
+    public StatType StatType => default;
+    public float BaseValue => 0f;
+    public StatCalculationType StatCalculationType => default;
+    public float GetValue() => 0f;
+    public float GetSumOfModifiers() => 0f;
+}
+
+public class PlayerStats : Unity.Netcode.NetworkBehaviour
+{
+    public PlayerStats(IntPtr pointer) : base(pointer) { }
+    public Il2CppSystem.Collections.Generic.List<Stat> GetPlayerStats() => null;
+    public float GetCharacterValue(StatType stat) => 0f;
+    public float GetSpellValue(SpellType spell, StatType stat, float baseValue) => 0f;
+    public Il2CppSystem.Collections.Generic.List<SpellType> GetEquippedSpells() => null;
+}
+
+public class GameplayPlayerIdentity : Unity.Netcode.NetworkBehaviour
+{
+    public GameplayPlayerIdentity(IntPtr pointer) : base(pointer) { }
+    public PlayerStats stats => null;
+}
+
+public class Hitbox : Unity.Netcode.NetworkBehaviour
+{
+    public Hitbox(IntPtr pointer) : base(pointer) { }
+    public HealthContainer HealthContainer => null;
+    public Il2CppSystem.Collections.Generic.List<Collider> colliders => null;
+    public void Hit(DamageInfo info) { }
+}
+
+public class Enemy : Unity.Netcode.NetworkBehaviour
+{
+    public Enemy(IntPtr pointer) : base(pointer) { }
+    public static Il2CppSystem.Collections.Generic.List<Enemy> AllEnemies => null;
+    public Hitbox hitbox => null;
 }
 
 public class PauseMenuManager : MonoBehaviour
