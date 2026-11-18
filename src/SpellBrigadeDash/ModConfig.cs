@@ -127,7 +127,7 @@ internal static class ModConfig
 
     // ---- Internal ----
     /// <summary>Bumped when shipped defaults change; older config files get those entries reset (see Migrate).</summary>
-    private const int CurrentConfigVersion = 7;
+    private const int CurrentConfigVersion = 8;
     public static ConfigEntry<int> ConfigVersion = null!;
 
     public static void Init(ConfigFile cfg)
@@ -284,11 +284,10 @@ internal static class ModConfig
             "Tells us whether the crash comes from the patches. BepInEx/SpellBrigadeDash.log names the last step before a crash.");
         HookDelaySeconds = cfg.Bind(dbg, "HookDelaySeconds", 3f,
             "Seconds after your wizard appears before the i-frame damage hooks are installed.");
-        StartRunWithDash = cfg.Bind(dbg, "StartRunWithDash", true,
-            "Give the dash at the start of every run instead of waiting for the level-up card. ON by default until the card hook is wired.");
-        ShopCardTestMode = cfg.Bind(dbg, "ShopCardTestMode", true,
-            "Test aid: the dash cards are Common and much more likely in the level-up shop, so they show up at the first level-up. " +
-            "ON for the shop test build only.");
+        StartRunWithDash = cfg.Bind(dbg, "StartRunWithDash", false,
+            "Test aid: give the dash at the start of every run instead of waiting for the Dash card in the level-up shop.");
+        ShopCardTestMode = cfg.Bind(dbg, "ShopCardTestMode", false,
+            "Test aid: the dash cards are Common and much more likely in the level-up shop, so they show up at the first level-up.");
         DebugHotkeys = cfg.Bind(dbg, "Hotkeys", true,
             "Debug hotkeys (hold the modifier, then press the key). Defaults: Left Ctrl + 1 = discovery report, + 2 = toggle dash, " +
             "+ 3 = +1 Charge, + 4 = Quick Recovery, + 5 = Long Stride, + 6 = Blazing Dash, + 7 = Ethereal Step.");
@@ -340,6 +339,13 @@ internal static class ModConfig
 
         // v7 (0.4.2): Blazing Dash damage agreed with Stefan, 18 Nov: base = the game's Trail spell (0). Only an untouched 15 moves.
         if (ConfigVersion.Value < 7 && System.Math.Abs(BlazingDashDamage.Value - 15f) < 0.001f) reset.Add(BlazingDashDamage);
+
+        // v8 (0.4.3): Stefan, 18 Nov: test mode off. Runs start without the dash, the cards come at their real rarities.
+        if (ConfigVersion.Value < 8)
+        {
+            if (StartRunWithDash.Value) reset.Add(StartRunWithDash);
+            if (ShopCardTestMode.Value) reset.Add(ShopCardTestMode);
+        }
 
         foreach (var entry in reset) entry.BoxedValue = entry.DefaultValue;
 

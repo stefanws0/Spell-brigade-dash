@@ -14,20 +14,15 @@ All design decisions are in [`docs/DESIGN.md`](docs/DESIGN.md).
 | Cards | **Dash** (Epic, unlock) · **+1 Charge** (Legendary) · **Quick Recovery** (Epic) · **Long Stride** (Epic) · **Blazing Dash** (Legendary) · **Ethereal Step** (Legendary, no HP cost) |
 | Co-op | Everyone installs it. Other players' dashes are detected from movement, so they get i-frames too |
 
-## Status: still a *discovery build* (0.3.0)
+## Status: playable, before release (0.4.3)
 
-The Spell Brigade is an IL2CPP game. Its code can only be inspected through files BepInEx generates on a PC with the
-game installed, and those weren't available while writing this mod. So this version **finds the game's player,
-damage and level-up code at runtime by name** and writes a report:
+The dash cards are in the game's own level-up shop at their real rarities, and **every run starts without the dash**:
+pick the **Dash** card first, then the upgrades show up. Blazing Dash's fire damages enemies like a fire spell. Still
+to do before a release: a co-op check, polish, and switching the discovery report and debug hotkeys off by default.
 
-1. Play a run with the mod installed. A few seconds in, it writes `BepInEx/SpellBrigadeDash-discovery.txt`.
-2. **Level up a few times**, dash into some enemies, then press
-   **Left Ctrl + 1** to refresh the report.
-3. Send the report back. The next version uses it to wire the real level-up cards, the co-op sync message
-   and Blazing Dash damage. See "Pending after discovery" in `docs/DESIGN.md`.
-
-Until then, **you start each run with the dash**, and debug hotkeys stand in for picking cards.
-Hold **Left Ctrl** and press:
+The mod still writes `BepInEx/SpellBrigadeDash-discovery.txt` a few seconds into each run (and on **Left Ctrl + 1**):
+what it found in the game, including the game's damage numbers. Debug hotkeys stand in for picking cards while
+testing. Hold **Left Ctrl** and press:
 
 | Key | Action |
 |---|---|

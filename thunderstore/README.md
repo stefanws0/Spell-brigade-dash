@@ -9,16 +9,14 @@ Press **Space** (or **LB** on a controller) for a quick, short dash.
 - **The bar fades out** once it's full, flashes when a segment refills, and shakes red if you press dash while it's empty.
 - **Level-up cards:** the dash is an **Epic** card, and it can be upgraded with **+1 Charge** (Legendary), **Quick Recovery** (Epic), **Long Stride** (Epic), **Blazing Dash** (Legendary) and **Ethereal Step** (Legendary).
 
-## ⚠️ Early version (0.3.0, "discovery build")
+## ⚠️ Before release (0.4.3)
 
-This first version finds the game's internals by name at runtime. Because of that:
-
-- You **start every run with the dash** (`Debug.StartRunWithDash = true`), because the level-up card hook isn't wired yet.
-  To test the upgrades, hold **Left Ctrl** and press **2** to toggle the dash, **3** for +1 Charge, **4** for Quick Recovery,
-  **5** for Long Stride, **6** for Blazing Dash or **7** for Ethereal Step. You can rebind these under `[Debug]` in the config.
-- The mod writes **`BepInEx/SpellBrigadeDash-discovery.txt`** a few seconds into a run, and again whenever you press **Left Ctrl + 1**.
-  Level up a few times during a run, press Ctrl + 1 and send that file to the author. It's what the next version uses to
-  wire the real level-up cards, co-op sync and Blazing Dash damage.
+- Every run **starts without the dash**: find the **Dash** card in the level-up shop first, then its upgrades appear.
+- **Blazing Dash** leaves the game's own fire behind you; enemies standing in it take fire damage like a fire spell
+  (your Damage %, crits and the fire burn all count).
+- Debug hotkeys are still on: hold **Left Ctrl** and press **2** to toggle the dash, **3** for +1 Charge, **4** for
+  Quick Recovery, **5** for Long Stride, **6** for Blazing Dash or **7** for Ethereal Step (rebind under `[Debug]`).
+- The mod writes **`BepInEx/SpellBrigadeDash-discovery.txt`** a few seconds into a run, and again on **Left Ctrl + 1**.
 
 ## Multiplayer
 

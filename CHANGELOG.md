@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3
+
+- **Test mode off** (Stefan, 18 Nov, as agreed in HANDOFF): runs start without the dash (`Debug.StartRunWithDash =
+  false`), and the dash cards come at their real rarities with one copy each (`Debug.ShopCardTestMode = false`): Dash,
+  Quick Recovery and Long Stride Epic; +1 Charge, Blazing Dash and Ethereal Step Legendary. Config v8 switches both
+  off in existing configs; turn them on again under `[Debug]` for testing. READMEs updated (no more "discovery build").
+
 ## 0.4.2
 
 - **Blazing Dash's fire now hurts enemies** (rules agreed with Stefan, 18 Nov). Enemies standing in a flame take a
