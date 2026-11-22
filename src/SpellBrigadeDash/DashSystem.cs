@@ -6,7 +6,9 @@ using System.Linq;
 using System.Text;
 using SpellBrigadeDash.Controls;
 using SpellBrigadeDash.Core;
+#if DEVTOOLS
 using SpellBrigadeDash.Discovery;
+#endif
 using SpellBrigadeDash.Fx;
 using SpellBrigadeDash.Game;
 using SpellBrigadeDash.Motion;
@@ -34,7 +36,6 @@ internal sealed class DashSystem
     private readonly DashBar _bar = new();
     private readonly RemoteDashDetector _remote = new();
     private readonly List<RemoteEmitter> _remoteEmitters = new();
-    private readonly HashSet<long> _hookedRemotes = new();
 
     private IReadOnlyList<DashCardDef> _cards = Array.Empty<DashCardDef>();
     private DashBaseStats _stats = new();
@@ -47,7 +48,9 @@ internal sealed class DashSystem
     private bool _initialized;
     private ActiveDash? _active;
     private float _bufferedUntil = -1f;
+#if DEVTOOLS
     private float _discoveryAt = -1f;
+#endif
     private float _hooksAt = -1f;
     private bool _hooksInstalled;
     private string? _runKey;
@@ -102,6 +105,7 @@ internal sealed class DashSystem
             Invulnerability.Prune();
             CardBridge.Update(_cards, _progress, Time.unscaledTime);
             StatPanelRows.Update(_stats, _progress, Time.unscaledTime);
+#if DEVTOOLS
             DamageReference.Tick(Time.unscaledTime);
 
             if (_discoveryAt > 0f && Time.unscaledTime >= _discoveryAt)
@@ -111,6 +115,7 @@ internal sealed class DashSystem
                 DiscoveryReport.Write(this, "run started");
                 ModLog.Step("discovery report: done");
             }
+#endif
         }
         catch (Exception ex)
         {
@@ -187,10 +192,11 @@ internal sealed class DashSystem
         }
 
         ModLog.Step("hooks: start");
-        DamageHooks.HookConfigured();
-        DamageHooks.HookFor(p);
+        DamageHooks.Install();
         CardBridge.InstallPickHook();
+#if DEVTOOLS
         MethodTracer.Install();
+#endif
         ModLog.Step("hooks: done");
     }
 
@@ -213,9 +219,10 @@ internal sealed class DashSystem
 
         DamageHooks.SetLocal(p);
         if (!_hooksInstalled) _hooksAt = Time.unscaledTime + Math.Max(0f, ModConfig.HookDelaySeconds.Value);
-        else if (!ModConfig.SafeMode.Value) DamageHooks.HookFor(p);
 
+#if DEVTOOLS
         if (ModConfig.DiscoveryEnabled.Value) _discoveryAt = Time.unscaledTime + Math.Max(0f, ModConfig.HookDelaySeconds.Value) + 3f;
+#endif
     }
 
     /// <summary>Reset the dash cards when the game starts a new run (not when a new wizard object appears).</summary>
@@ -464,7 +471,6 @@ internal sealed class DashSystem
         foreach (var r in Locator.Remotes)
         {
             if (r.IsDestroyed) continue;
-            if (_hooksInstalled && _hookedRemotes.Add(r.Id)) DamageHooks.HookFor(r);
 
             var f = r.RootT.position;
             if (!_remote.Observe(r.Id, new System.Numerics.Vector3(f.x, f.y, f.z), now)) continue;
@@ -497,9 +503,13 @@ internal sealed class DashSystem
     {
         if (_input.DebugPressed(DebugKey.Report))
         {
+#if DEVTOOLS
             ModLog.Step("discovery report (hotkey): writing");
             DiscoveryReport.Write(this, "hotkey");
             ModLog.Step("discovery report (hotkey): done");
+#else
+            ModLog.Info("[debug] The discovery report is only in developer builds (dotnet build -p:DevTools=true).");
+#endif
         }
         if (_input.DebugPressed(DebugKey.ToggleDash))
         {

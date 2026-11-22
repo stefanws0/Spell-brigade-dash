@@ -2,7 +2,6 @@ namespace SpellBrigadeDash.Game;
 
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEngine;
 using Object = UnityEngine.Object;
 using Random = System.Random;
@@ -56,7 +55,7 @@ internal sealed class GameFireTrail
             tr.localScale = t.Scale * scale;
 
             ModLog.StepOnce("game-fire-play", "fx: first game fire (FireVisualizer.PlayEffect)");
-            t.Play.Invoke(flame.Visualizer, new[] { t.Theme });
+            flame.Visualizer.PlayEffect(t.Theme);
             EnsureEffectActive(flame);
             flame.Burning = true;
             flame.StopAt = now + Math.Max(0.1f, life);
@@ -64,7 +63,7 @@ internal sealed class GameFireTrail
         }
         catch (Exception ex)
         {
-            Disable("lighting a fire failed: " + (ex.InnerException ?? ex).Message);
+            Disable("lighting a fire failed: " + ex.Message);
             return false;
         }
     }
@@ -87,13 +86,13 @@ internal sealed class GameFireTrail
             f.FreeAt = now + ReuseDelay;
             try
             {
-                f.Stop.Invoke(f.Visualizer, null);
+                f.Visualizer.StopEffect();
             }
             catch (Exception ex)
             {
                 Object.Destroy(f.Go);
                 _flames.RemoveAt(i);
-                ModLog.WarnOnce("game-fire-stop", "Game fire trail: StopEffect failed (" + (ex.InnerException ?? ex).Message + "); that fire was removed.");
+                ModLog.WarnOnce("game-fire-stop", "Game fire trail: StopEffect failed (" + ex.Message + "); that fire was removed.");
             }
         }
     }
@@ -134,22 +133,7 @@ internal sealed class GameFireTrail
         var go = Object.Instantiate(t.Source, parent);
         go.name = "SBD_GameFire";
 
-        object? visualizer = null;
-        foreach (var c in go.GetComponents<MonoBehaviour>())
-        {
-            if (c == null || Il2CppNames.ShortName(c) != "FireVisualizer") continue;
-            visualizer = Il2CppNames.Wrap(c, t.VisualizerType);
-            break;
-        }
-
-        GameObject? effect = null;
-        foreach (var c in go.GetComponentsInChildren<Component>(true))
-        {
-            if (c == null || Il2CppNames.ShortName(c) != "VisualEffect") continue;
-            effect = c.gameObject;
-            break;
-        }
-
+        var visualizer = go.GetComponent<FireVisualizer>();
         if (visualizer == null)
         {
             Object.Destroy(go);
@@ -157,7 +141,18 @@ internal sealed class GameFireTrail
             return null;
         }
 
-        var flame = new Flame(go, visualizer, effect, t.Stop);
+        GameObject? effect = null;
+        try
+        {
+            var vfx = visualizer.fireEffect;
+            if (vfx != null) effect = vfx.gameObject;
+        }
+        catch
+        {
+            // optional: only used to switch the effect on if PlayEffect didn't
+        }
+
+        var flame = new Flame(go, visualizer, effect);
         _flames.Add(flame);
         return flame;
     }
@@ -181,41 +176,25 @@ internal sealed class GameFireTrail
         _template = null;
         _templateFor = p.Id;
 
-        foreach (var c in p.Root.GetComponentsInChildren<MonoBehaviour>(true))
+        var source = p.Root.GetComponentInChildren<FireVisualizer>(true);
+        if (source == null)
         {
-            if (c == null || Il2CppNames.ShortName(c) != "FireVisualizer") continue;
-            var type = Il2CppNames.FindInteropType(Il2CppNames.FullName(c));
-            var play = type?.GetMethod("PlayEffect", BindingFlags.Instance | BindingFlags.Public);
-            var stop = type?.GetMethod("StopEffect", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
-            var param = play?.GetParameters();
-            if (type == null || play == null || stop == null || param == null || param.Length != 1 || !param[0].ParameterType.IsEnum)
-            {
-                Disable("FireVisualizer.PlayEffect(FireTheme) / StopEffect() not found");
-                return null;
-            }
-
-            object theme;
-            var wanted = ModConfig.GameFireTheme.Value.Trim();
-            try
-            {
-                theme = Enum.Parse(param[0].ParameterType, wanted, ignoreCase: true);
-            }
-            catch
-            {
-                theme = Enum.GetValues(param[0].ParameterType).GetValue(0)!;
-                ModLog.Warn($"Game fire trail: unknown Effects.GameFireTheme '{wanted}', using '{theme}'. Options: {string.Join(", ", Enum.GetNames(param[0].ParameterType))}.");
-            }
-
-            var src = c.transform;
-            _template = new Template(c.gameObject, type, play, stop, theme,
-                src.position - p.RootT.position, src.rotation, src.lossyScale);
-            Status = $"the game's own fire (FireVisualizer '{c.gameObject.name}', theme {theme}, scale {ModConfig.GameFireScale.Value:0.##})";
-            ModLog.Info("Blazing Dash trail: " + Status);
-            return _template;
+            Disable("the wizard has no FireVisualizer");
+            return null;
         }
 
-        Disable("the wizard has no FireVisualizer");
-        return null;
+        var wanted = ModConfig.GameFireTheme.Value.Trim();
+        if (!Enum.TryParse<FireTheme>(wanted, ignoreCase: true, out var theme))
+        {
+            theme = FireTheme.Fire;
+            ModLog.Warn($"Game fire trail: unknown Effects.GameFireTheme '{wanted}', using '{theme}'. Options: {string.Join(", ", Enum.GetNames(typeof(FireTheme)))}.");
+        }
+
+        var src = source.transform;
+        _template = new Template(source.gameObject, theme, src.position - p.RootT.position, src.rotation, src.lossyScale);
+        Status = $"the game's own fire (FireVisualizer '{source.gameObject.name}', theme {theme}, scale {ModConfig.GameFireScale.Value:0.##})";
+        ModLog.Info("Blazing Dash trail: " + Status);
+        return _template;
     }
 
     private void Disable(string why)
@@ -227,13 +206,9 @@ internal sealed class GameFireTrail
 
     private sealed class Template
     {
-        public Template(GameObject source, Type visualizerType, MethodInfo play, MethodInfo stop, object theme,
-            Vector3 offset, Quaternion rotation, Vector3 scale)
+        public Template(GameObject source, FireTheme theme, Vector3 offset, Quaternion rotation, Vector3 scale)
         {
             Source = source;
-            VisualizerType = visualizerType;
-            Play = play;
-            Stop = stop;
             Theme = theme;
             Offset = offset;
             Rotation = rotation;
@@ -241,10 +216,7 @@ internal sealed class GameFireTrail
         }
 
         public GameObject Source { get; }
-        public Type VisualizerType { get; }
-        public MethodInfo Play { get; }
-        public MethodInfo Stop { get; }
-        public object Theme { get; }
+        public FireTheme Theme { get; }
         public Vector3 Offset { get; }
         public Quaternion Rotation { get; }
         public Vector3 Scale { get; }
@@ -252,18 +224,16 @@ internal sealed class GameFireTrail
 
     private sealed class Flame
     {
-        public Flame(GameObject go, object visualizer, GameObject? effect, MethodInfo stop)
+        public Flame(GameObject go, FireVisualizer visualizer, GameObject? effect)
         {
             Go = go;
             Visualizer = visualizer;
             Effect = effect;
-            Stop = stop;
         }
 
         public GameObject Go { get; }
-        public object Visualizer { get; }
+        public FireVisualizer Visualizer { get; }
         public GameObject? Effect { get; }
-        public MethodInfo Stop { get; }
         public bool Burning;
         public float StopAt;
         public float FreeAt;

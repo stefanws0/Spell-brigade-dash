@@ -96,19 +96,12 @@ internal static class ModConfig
     public static ConfigEntry<bool> RemoteIFrames = null!;
     public static ConfigEntry<float> RemoteDashSpeedFactor = null!;
 
-    // ---- Game hooks (advanced) ----
-    public static ConfigEntry<string> PlayerComponent = null!;
-    public static ConfigEntry<string> LocalPlayerMembers = null!;
-    public static ConfigEntry<string> DeadMembers = null!;
-    public static ConfigEntry<string> DamageMethods = null!;
-    public static ConfigEntry<bool> AutoDamageHooks = null!;
-    public static ConfigEntry<string> HealthMembers = null!;
-    public static ConfigEntry<string> MaxHealthMembers = null!;
-
     // ---- Discovery ----
     public static ConfigEntry<bool> DiscoveryEnabled = null!;
+#if DEVTOOLS
     public static ConfigEntry<bool> TraceLevelUpMethods = null!;
     public static ConfigEntry<int> TraceMaxMethods = null!;
+#endif
     public static ConfigEntry<bool> SafeMode = null!;
     public static ConfigEntry<float> HookDelaySeconds = null!;
 
@@ -253,34 +246,17 @@ internal static class ModConfig
         RemoteDashSpeedFactor = cfg.Bind(mp, "RemoteDashSpeedFactor", 0.8f,
             new ConfigDescription("A remote wizard moving faster than this fraction of dash speed counts as dashing.", new AcceptableValueRange<float>(0.2f, 1.5f)));
 
-        const string hooks = "GameHooks";
-        PlayerComponent = cfg.Bind(hooks, "PlayerComponent", "GameplayPlayer",
-            "Class name of the component on the player wizard (e.g. PlayerController). 'auto' = guess by name. See the discovery report.");
-        LocalPlayerMembers = cfg.Bind(hooks, "LocalPlayerMembers",
-            "isLocalPlayer,IsLocalPlayer,IsLocal,isLocal,IsOwner,isOwner,IsOwned,isOwned,IsMine,isMine,hasAuthority,HasAuthority,HasInputAuthority,IsLocallyControlled,isLocallyControlled",
-            "Bool fields/properties checked (on any component of the wizard) to tell YOUR wizard apart from other players.");
-        DeadMembers = cfg.Bind(hooks, "DeadMembers", "isGhost,IsGhost,IsDead,isDead,Dead,dead,IsDowned,isDowned,Downed,downed,IsKnockedOut,!IsAlive,!isAlive",
-            "Bool members that mean 'can't dash right now'. Prefix with ! to invert (e.g. !IsAlive).");
-        DamageMethods = cfg.Bind(hooks, "DamageMethods", "PlayerHealthContainer:TakeDamage;PlayerHealthContainer:RemoveHealthOnOwner",
-            "Extra damage methods to block during i-frames, as Type:Method separated by ';' (e.g. PlayerHealth:TakeDamage). Always applied.");
-        AutoDamageHooks = cfg.Bind(hooks, "AutoDamageHooks", false,
-            "Automatically hook methods named like TakeDamage/OnHit on the wizard's components for i-frames.");
-        HealthMembers = cfg.Bind(hooks, "HealthMembers",
-            "CurrentHealth,currentHealth,curHealth,health,Health,currentHp,CurrentHp,CurrentHP,hp,HP,Hp,_health,m_Health,_currentHealth,currentLife,CurrentLife",
-            "Numeric fields/properties (on the wizard's components) that hold CURRENT HP, used for the dash's HP cost. First match wins.");
-        MaxHealthMembers = cfg.Bind(hooks, "MaxHealthMembers",
-            "MaxHealth,maxHealth,maxHp,MaxHp,MaxHP,maxHP,_maxHealth,m_MaxHealth,maxLife,MaxLife,totalHealth,TotalHealth",
-            "Numeric fields/properties that hold MAX HP.");
-
         const string disc = "Discovery";
         DiscoveryEnabled = cfg.Bind(disc, "Enabled", false,
-            "Diagnostics for the mod's author, OFF by default: write BepInEx/SpellBrigadeDash-discovery.txt (game classes, damage numbers, " +
-            "upgrade types...) when a run starts and on the report hotkey, and log extra detail to BepInEx/SpellBrigadeDash.log " +
-            "(shop contents, stats panel layout, enemy health, fire damage summaries).");
+            "Diagnostics for the mod's author, OFF by default: log extra detail to BepInEx/SpellBrigadeDash.log " +
+            "(shop contents, stats panel layout, enemy health, fire damage summaries). Developer builds also write " +
+            "BepInEx/SpellBrigadeDash-discovery.txt (game classes, damage numbers, upgrade types...).");
+#if DEVTOOLS
         TraceLevelUpMethods = cfg.Bind(disc, "TraceLevelUpMethods", false,
             "Developer tool, OFF: patches game methods to log when they run. It crashed the game at level-up in 0.3.0 (merged method bodies), " +
             "so it now skips risky methods, but leave it off unless asked."); 
         TraceMaxMethods = cfg.Bind(disc, "TraceMaxMethods", 40, "Maximum number of game methods traced (level-up shop classes first).");
+#endif
 
         const string dbg = "Debug";
         SafeMode = cfg.Bind(dbg, "SafeMode", false,
@@ -293,12 +269,12 @@ internal static class ModConfig
         ShopCardTestMode = cfg.Bind(dbg, "ShopCardTestMode", false,
             "Test aid: the dash cards are Common and much more likely in the level-up shop, so they show up at the first level-up.");
         DebugHotkeys = cfg.Bind(dbg, "Hotkeys", false,
-            "Test aid, OFF by default. Debug hotkeys (hold the modifier, then press the key). Defaults: Left Ctrl + 1 = discovery report, + 2 = toggle dash, " +
+            "Test aid, OFF by default. Debug hotkeys (hold the modifier, then press the key). Defaults: Left Ctrl + 1 = discovery report (developer builds), + 2 = toggle dash, " +
             "+ 3 = +1 Charge, + 4 = Quick Recovery, + 5 = Long Stride, + 6 = Blazing Dash, + 7 = Ethereal Step.");
         const string keyHelp = " Input System control path, e.g. <Keyboard>/1, <Keyboard>/k, <Keyboard>/numpad1, <Keyboard>/f6.";
         HotkeyModifier = cfg.Bind(dbg, "HotkeyModifier", "<Keyboard>/leftCtrl",
             "Key that must be held for the debug hotkeys. Empty = no modifier." + keyHelp);
-        KeyReport = cfg.Bind(dbg, "KeyWriteReport", "<Keyboard>/1", "Write the discovery report now." + keyHelp);
+        KeyReport = cfg.Bind(dbg, "KeyWriteReport", "<Keyboard>/1", "Write the discovery report now (developer builds only)." + keyHelp);
         KeyToggleDash = cfg.Bind(dbg, "KeyToggleDash", "<Keyboard>/2", "Lock / unlock the dash." + keyHelp);
         KeyExtraCharge = cfg.Bind(dbg, "KeyExtraCharge", "<Keyboard>/3", "Apply the '+1 Dash Charge' card." + keyHelp);
         KeyQuickRecovery = cfg.Bind(dbg, "KeyQuickRecovery", "<Keyboard>/4", "Apply the 'Quick Recovery' card." + keyHelp);
@@ -328,15 +304,9 @@ internal static class ModConfig
 
         // v3 (0.3.0): real game hooks from the discovery report.
         if (ConfigVersion.Value < 3)
-            reset.AddRange(new ConfigEntryBase[] { PlayerComponent, DeadMembers, RemoteIFrames, RemoteDashSpeedFactor, SoundClipHints, TraceMaxMethods });
+            reset.AddRange(new ConfigEntryBase[] { RemoteIFrames, RemoteDashSpeedFactor, SoundClipHints });
 
-        // v4 (0.3.0): shop trace on for the next test (approved), to wire the dash cards into the level-up shop.
-        if (ConfigVersion.Value < 4) reset.Add(TraceLevelUpMethods);
-
-        // v5 (0.3.1): the trace crashed at level-up -> off; damage hooks pinned to the two proven player methods;
-        // health members CurrentHealth/MaxHealth first.
-        if (ConfigVersion.Value < 5)
-            reset.AddRange(new ConfigEntryBase[] { TraceLevelUpMethods, DamageMethods, AutoDamageHooks, HealthMembers, MaxHealthMembers });
+        // v4/v5 (0.3.x) only reset the [GameHooks] entries and the method tracer; 0.5.2 removed those / made the tracer developer-only.
 
         // v6 (0.4.1): the owner, 18 Nov: the dash recharges too fast -> 15 s per charge (was 12). Only an untouched 12 moves.
         if (ConfigVersion.Value < 6 && System.Math.Abs(RechargeSeconds.Value - 12f) < 0.001f) reset.Add(RechargeSeconds);

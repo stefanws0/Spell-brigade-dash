@@ -2,142 +2,61 @@ namespace SpellBrigadeDash.Game;
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using HarmonyLib;
 using UnityEngine;
 
 /// <summary>
-/// I-frames: Harmony prefixes on the game's "take damage" methods. A prefix that returns false skips
-/// the original method, so the hit never happens while the wizard is in <see cref="Invulnerability"/>.
-///
-/// The game's real damage method is unknown until discovery, so by default we hook every method on
-/// the wizard's components whose name looks like TakeDamage / OnHit / ReceiveDamage / RpcTakeDamage...
-/// Exact methods can be added with GameHooks.DamageMethods.
+/// I-frames: Harmony prefixes on the game's two "take damage" methods of <c>PlayerHealthContainer</c>
+/// (<c>TakeDamage(float, DamageInfo, bool)</c> and <c>RemoveHealthOnOwner(float, DamageInfo)</c>). A prefix that
+/// returns false skips the original method, so the hit never happens while that wizard is in
+/// <see cref="Invulnerability"/>. The patches sit on the class, so they cover every wizard (yours and others').
 /// </summary>
 internal static class DamageHooks
 {
-    // TakeDamage, ReceiveDamage, ApplyDamage, OnDamaged, OnHit, Hurt, CmdTakeDamage, RpcTakeHit, UserCode_RpcTakeDamage, RpcLogic___TakeDamage_123...
-    // Deliberately NOT DealDamage/InflictDamage/DoDamage (those are usually the attacker's side).
-    private static readonly Regex AutoName = new(
-        @"^(?:UserCode_|RpcLogic___)?(?:Cmd|Rpc|Server|Client|Local|Net|Network|Target)?_?(?:Take|Receive|Apply|Handle|Process|On|Get)?(?:Damage|Damaged|Hit|Hurt|Harm)(?:Taken|Received|Rpc|Server|Client|Local)?(?:_\d+)?$",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-    private static readonly Regex HealthLikeType = new("(health|hurt|damage|life|hp|vital|stat|hitbox|defen|armor|armour)",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-    private static readonly HashSet<MethodBase> Patched = new();
+    private static bool _installed;
     private static HashSet<IntPtr> _localPtrs = new();
 
     public static List<string> PatchedNames { get; } = new();
     public static List<string> FailedNames { get; } = new();
     public static Dictionary<string, int> CallsOnLocal { get; } = new();
 
-    public static bool IsDamageLikeName(string name) => AutoName.IsMatch(name);
-
     public static void SetLocal(PlayerInfo p) => _localPtrs = p.GameObjectPtrs;
 
-    /// <summary>Hook the damage methods relevant for this wizard (idempotent).</summary>
-    public static void HookFor(PlayerInfo p)
+    /// <summary>Install the two patches (once).</summary>
+    public static void Install()
     {
-        if (ModConfig.SafeMode.Value) return;
-        if (ModConfig.AutoDamageHooks.Value)
-        {
-            var types = new HashSet<Type>();
-            foreach (var v in p.Views)
-                if (v.InteropType != null)
-                    types.Add(v.InteropType);
+        if (_installed || ModConfig.SafeMode.Value) return;
+        _installed = true;
 
-            // Also health-like components on child objects (hurtboxes, health on a child...). Other
-            // children (weapons, spell casters) are skipped: their "Hit" methods are the wizard hitting enemies.
-            try
-            {
-                var count = 0;
-                foreach (var c in p.Root.GetComponentsInChildren<MonoBehaviour>(true))
-                {
-                    if (c == null || ++count > 200) break;
-                    var name = Il2CppNames.FullName(c);
-                    if (!HealthLikeType.IsMatch(name)) continue;
-                    var t = Il2CppNames.FindInteropType(name);
-                    if (t != null) types.Add(t);
-                }
-            }
-            catch (Exception ex)
-            {
-                ModLog.Debug($"Scanning child components failed: {ex.Message}");
-            }
-
-            foreach (var type in types)
-            foreach (var t in Reflect.SelfAndGameBases(type))
-            foreach (var m in t.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
-                if (AutoName.IsMatch(m.Name))
-                    TryPatch(m);
-        }
-
-        HookConfigured();
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+        var type = typeof(PlayerHealthContainer);
+        TryPatch(type.GetMethod(nameof(PlayerHealthContainer.TakeDamage), flags, null,
+            new[] { typeof(float), typeof(DamageInfo), typeof(bool) }, null), "PlayerHealthContainer.TakeDamage(float, DamageInfo, bool)");
+        TryPatch(type.GetMethod(nameof(PlayerHealthContainer.RemoveHealthOnOwner), flags, null,
+            new[] { typeof(float), typeof(DamageInfo) }, null), "PlayerHealthContainer.RemoveHealthOnOwner(float, DamageInfo)");
     }
 
-    public static void HookConfigured()
+    private static void TryPatch(MethodInfo? m, string label)
     {
-        if (ModConfig.SafeMode.Value) return;
-        foreach (var entry in ModConfig.SplitList(ModConfig.DamageMethods.Value, ';'))
+        if (m == null)
         {
-            var parts = entry.Split(':');
-            if (parts.Length != 2)
-            {
-                ModLog.WarnOnce("dmg-cfg-" + entry, $"GameHooks.DamageMethods entry '{entry}' should look like Type:Method.");
-                continue;
-            }
-
-            var type = Il2CppNames.FindInteropType(parts[0].Trim());
-            if (type == null)
-            {
-                ModLog.WarnOnce("dmg-cfg-" + entry, $"GameHooks.DamageMethods: type '{parts[0]}' not found.");
-                continue;
-            }
-
-            var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
-                .Where(m => m.Name == parts[1].Trim()).ToList();
-            if (methods.Count == 0) ModLog.WarnOnce("dmg-cfg-" + entry, $"GameHooks.DamageMethods: method '{entry}' not found.");
-            foreach (var m in methods) TryPatch(m, force: true);
-        }
-    }
-
-    private static void TryPatch(MethodInfo m, bool force = false)
-    {
-        if (!Patched.Add(m)) return;
-        var label = $"{m.DeclaringType?.Name}.{m.Name}({string.Join(", ", m.GetParameters().Select(x => x.ParameterType.Name))}) : {m.ReturnType.Name}";
-
-        if (m.IsAbstract || m.IsGenericMethodDefinition || m.IsSpecialName || (!force && m.GetParameters().Length == 0)
-            || m.GetParameters().Any(x => x.ParameterType.IsByRef || x.ParameterType.IsPointer))
-        {
-            FailedNames.Add(label + "  [skipped: unsupported signature]");
+            FailedNames.Add(label + "  [not found in this game version]");
+            ModLog.Warn($"I-frames: {label} not found; that damage path isn't blocked.");
             return;
         }
 
-        string prefix;
-        if (m.ReturnType == typeof(void)) prefix = nameof(PrefixVoid);
-        else if (m.ReturnType == typeof(bool)) prefix = nameof(PrefixBool);
-        else if (m.ReturnType == typeof(int)) prefix = nameof(PrefixInt);
-        else if (m.ReturnType == typeof(float)) prefix = nameof(PrefixFloat);
-        else
+        if (!NativeCode.CanPatch(m, label, out var why))
         {
-            FailedNames.Add(label + "  [skipped: return type]");
-            return;
-        }
-
-        var native = NativeCode.Pointer(m);
-        if (native == IntPtr.Zero)
-        {
-            FailedNames.Add(label + "  [skipped: no native code]");
+            FailedNames.Add($"{label}  [skipped: {why}]");
+            ModLog.Warn($"I-frames: not patching {label}: {why}");
             return;
         }
 
         try
         {
-            ModLog.Step($"damage hook patch: {label} (native 0x{native.ToInt64():X})");
-            Plugin.Harmony.Patch(m, prefix: new HarmonyMethod(typeof(DamageHooks).GetMethod(prefix, BindingFlags.Static | BindingFlags.NonPublic)));
+            ModLog.Step($"damage hook patch: {label} ({why})");
+            Plugin.Harmony.Patch(m, prefix: new HarmonyMethod(AccessTools.Method(typeof(DamageHooks), nameof(Prefix))));
             ModLog.Step("damage hook patch ok");
             PatchedNames.Add(label);
             ModLog.Info($"I-frame hook installed on {label}");
@@ -149,30 +68,9 @@ internal static class DamageHooks
         }
     }
 
-    // ---------------------------------------------------------------- Harmony prefixes
+    // ---------------------------------------------------------------- Harmony prefix
 
-    private static bool PrefixVoid(object __instance, MethodBase __originalMethod) => !ShouldBlock(__instance, __originalMethod);
-
-    private static bool PrefixBool(object __instance, MethodBase __originalMethod, ref bool __result)
-    {
-        if (!ShouldBlock(__instance, __originalMethod)) return true;
-        __result = false;
-        return false;
-    }
-
-    private static bool PrefixInt(object __instance, MethodBase __originalMethod, ref int __result)
-    {
-        if (!ShouldBlock(__instance, __originalMethod)) return true;
-        __result = 0;
-        return false;
-    }
-
-    private static bool PrefixFloat(object __instance, MethodBase __originalMethod, ref float __result)
-    {
-        if (!ShouldBlock(__instance, __originalMethod)) return true;
-        __result = 0f;
-        return false;
-    }
+    private static bool Prefix(object __instance, MethodBase __originalMethod) => !ShouldBlock(__instance, __originalMethod);
 
     private static bool ShouldBlock(object instance, MethodBase method)
     {

@@ -24,6 +24,11 @@ internal static class DiscoveryReport
 {
     private const int MaxChars = 2_500_000;
 
+    // TakeDamage, ReceiveDamage, OnHit, RpcTakeDamage... (deliberately not DealDamage/DoDamage: the attacker's side)
+    private static readonly Regex DamageLikeName = new(
+        @"^(?:UserCode_|RpcLogic___)?(?:Cmd|Rpc|Server|Client|Local|Net|Network|Target)?_?(?:Take|Receive|Apply|Handle|Process|On|Get)?(?:Damage|Damaged|Hit|Hurt|Harm)(?:Taken|Received|Rpc|Server|Client|Local)?(?:_\d+)?$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     private static readonly Regex UpgradeTypeRx = new(
         "(level|upgrade|perk|reward|offer|choice|card|shop|rarity|boon|blessing|augment|talent|draft|relic|infusion|experience|xp)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -71,7 +76,7 @@ internal static class DiscoveryReport
         Try("libraries", () =>
         {
             var names = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetName().Name ?? "").OrderBy(n => n).ToList();
-            var net = NetBridge.DetectLibraries();
+            var net = NetLibraries.Detect();
             sb.AppendLine($"Networking: {(net.Count == 0 ? "none recognised" : string.Join(", ", net))}");
             sb.AppendLine($"Audio middleware: {Flag(names, "FMODUnity", "FMOD")} {Flag(names, "AkSoundEngine", "Wwise")} {Flag(names, "MasterAudio", "MasterAudio")}");
             sb.AppendLine($"Input: {Flag(names, "Unity.InputSystem", "Unity.InputSystem")} {Flag(names, "Rewired_Core", "Rewired")} {Flag(names, "InControl", "InControl")}");
@@ -87,7 +92,6 @@ internal static class DiscoveryReport
         Try("candidates", () =>
         {
             sb.AppendLine("Search: " + sys.Locator.LastSearchSummary);
-            foreach (var c in sys.Locator.LastCandidates) sb.AppendLine("  " + c);
         });
 
         var local = sys.Locator.Local;
@@ -125,7 +129,7 @@ internal static class DiscoveryReport
             foreach (var t in Il2CppNames.GameTypes().OrderBy(t => t.FullName))
             foreach (var m in SafeMethods(t))
             {
-                if (!DamageHooks.IsDamageLikeName(m.Name) || m.IsSpecialName) continue;
+                if (!DamageLikeName.IsMatch(m.Name) || m.IsSpecialName) continue;
                 sb.AppendLine("  " + MethodTracer.Label(m) + " : " + MethodTracer.Pretty(m.ReturnType) + (m.IsStatic ? "  [static]" : ""));
                 if (++count >= 400) break;
             }
@@ -220,9 +224,10 @@ internal static class DiscoveryReport
         Try("health", () =>
         {
             sb.AppendLine("In use: " + HealthBridge.Status);
-            if (local != null && !local.IsDestroyed)
-                foreach (var line in HealthBridge.DescribeCandidates(local))
-                    sb.AppendLine("  " + line);
+            var h = local?.Health;
+            if (h != null)
+                sb.AppendLine($"  CurrentHealth {h.CurrentHealth:0.#}, MaxHealth {h.MaxHealth:0.#}, SyncedCurrentHealth {h.SyncedCurrentHealth.Value:0.#}, " +
+                              $"SyncedMaxHealth {h.SyncedMaxHealth.Value:0.#}, invulnerable {h.IsPlayerInvulnerable}");
         });
 
         Section("17. FMOD sound events (pick one for Sound.FmodEvent)");
@@ -333,7 +338,7 @@ internal static class DiscoveryReport
             if (types.Count > 60) break;
         }
 
-        foreach (var v in p.Views)
+        foreach (var v in ComponentView.Of(p.Root))
             if (v.InteropType != null && Il2CppNames.IsGameType(v.InteropType))
                 types.Add(v.InteropType);
 

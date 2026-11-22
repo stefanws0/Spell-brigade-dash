@@ -1,8 +1,10 @@
 // COMPILE-CHECK STUB ONLY - the game classes SpellBrigadeDash uses with real types (the level-up shop, see
 // Game/CardBridge.cs), with the same names, namespaces and member names as the real interop
 // (BepInEx/interop/Runtime.dll, Unity.Netcode.Runtime.dll, Unity.Localization.dll, Unity.TextMeshPro.dll). Bodies are dummies.
-// Also the stats list (Game/StatPanelRows.cs).
+// Also the stats list (Game/StatPanelRows.cs), the wizard and its parts (Game/PlayerLocator.cs, HealthBridge.cs,
+// DamageHooks.cs, GameFx.cs, GameFireTrail.cs) and FMOD (Game/FmodSound.cs).
 using System;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
 using Il2CppList = Il2CppSystem.Collections.Generic.List<StoreItem>;
 
@@ -13,6 +15,53 @@ namespace Unity.Netcode
         public NetworkBehaviour(IntPtr pointer) : base(pointer) { }
         public bool IsOwner => false;
         public ulong OwnerClientId => 0;
+    }
+
+    public class NetworkVariable<T> : Il2CppSystem.Object
+    {
+        public NetworkVariable(IntPtr pointer) : base(pointer) { }
+        public T Value { get; set; }
+    }
+}
+
+namespace UnityEngine.VFX
+{
+    public class VisualEffect : Behaviour
+    {
+        public VisualEffect(IntPtr pointer) : base(pointer) { }
+    }
+}
+
+namespace FMOD
+{
+    public enum RESULT { OK }
+}
+
+namespace FMOD.Studio
+{
+    public struct EventDescription
+    {
+        public RESULT getPath(out string path) { path = null; return RESULT.OK; }
+    }
+
+    public struct Bank
+    {
+        public RESULT getEventList(out Il2CppStructArray<EventDescription> array) { array = null; return RESULT.OK; }
+    }
+
+    public struct System
+    {
+        public RESULT getBankList(out Il2CppStructArray<Bank> array) { array = null; return RESULT.OK; }
+    }
+}
+
+namespace FMODUnity
+{
+    public static class RuntimeManager
+    {
+        public static bool IsInitialized => false;
+        public static FMOD.Studio.System StudioSystem => default;
+        public static void PlayOneShot(string path, Vector3 position) { }
     }
 }
 
@@ -152,6 +201,53 @@ public class HealthContainer : Unity.Netcode.NetworkBehaviour
     public HealthContainer(IntPtr pointer) : base(pointer) { }
     public float MaxHealth => 0f;
     public float CurrentHealth => 0f;
+    public Unity.Netcode.NetworkVariable<float> SyncedCurrentHealth => null;
+    public Unity.Netcode.NetworkVariable<float> SyncedMaxHealth => null;
+}
+
+// The wizard (Game/PlayerLocator.cs) and the parts the mod uses.
+public class PlayerHealthContainer : HealthContainer
+{
+    public PlayerHealthContainer(IntPtr pointer) : base(pointer) { }
+    public bool IsPlayerInvulnerable => false;
+    public void TakeDamage(float amount, DamageInfo damageSource, bool hitIsCritical) { }
+    public void RemoveHealthOnOwner(float amount, DamageInfo damageSource) { }
+}
+
+public class PlayerMotor : Unity.Netcode.NetworkBehaviour
+{
+    public PlayerMotor(IntPtr pointer) : base(pointer) { }
+    public bool isGhost => false;
+}
+
+public class MultiSourceParticleEffect : MonoBehaviour
+{
+    public MultiSourceParticleEffect(IntPtr pointer) : base(pointer) { }
+    public void SetSource(Il2CppSystem.Object source, bool active) { }
+}
+
+public class PlayerTeleportEffect : Unity.Netcode.NetworkBehaviour
+{
+    public PlayerTeleportEffect(IntPtr pointer) : base(pointer) { }
+    public void PlayTeleportedEffect() { }
+}
+
+public class GameplayPlayer : Unity.Netcode.NetworkBehaviour
+{
+    public GameplayPlayer(IntPtr pointer) : base(pointer) { }
+    public PlayerHealthContainer HealthContainer => null;
+    public PlayerMotor PlayerMotor => null;
+    public MultiSourceParticleEffect FastParticleEffect => null;
+}
+
+public enum FireTheme { Fire, FireDouble }
+
+public class FireVisualizer : MonoBehaviour
+{
+    public FireVisualizer(IntPtr pointer) : base(pointer) { }
+    public UnityEngine.VFX.VisualEffect fireEffect => null;
+    public void PlayEffect(FireTheme theme) { }
+    public void StopEffect() { }
 }
 
 public class EnemyHealthContainer : HealthContainer

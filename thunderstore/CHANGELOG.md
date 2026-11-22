@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.2
+
+- The mod now uses the game's own classes directly instead of looking them up while the game starts. No gameplay changes.
+- Removed the advanced `[GameHooks]` settings (they were only needed while the mod still had to find the game's classes).
+
 ## 0.5.1
 
 - New icon: the Dash card's art.

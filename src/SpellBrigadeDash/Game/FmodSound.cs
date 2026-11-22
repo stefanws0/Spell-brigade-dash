@@ -1,28 +1,21 @@
 namespace SpellBrigadeDash.Game;
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 
 /// <summary>
-/// The Spell Brigade plays all its audio through FMOD, not Unity's AudioSources, so the dash sound goes
-/// through FMODUnity.RuntimeManager as well. Everything is reflection on the interop types, so the mod
-/// doesn't need FMOD at build time and simply stays silent if anything is missing.
+/// The Spell Brigade plays all its audio through FMOD, not Unity's AudioSources, so the dash sound goes through
+/// <c>FMODUnity.RuntimeManager</c> as well. If anything about FMOD is missing, the mod simply stays silent.
 ///
 /// The event is Sound.FmodEvent from the config (an "event:/..." path), or "auto": the first event in the
 /// game's loaded banks whose path matches Sound.ClipNameHints (dash, dodge, teleport, whoosh...).
-/// The discovery report lists every event, so a better one can be picked by name.
 /// </summary>
 internal static class FmodSound
 {
-    private const BindingFlags Static = BindingFlags.Static | BindingFlags.Public;
-    private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public;
-
-    private static bool _resolved;
-    private static Type? _runtimeManager;
+    private static bool? _available;
     private static string? _eventPath;
     private static bool _picked;
     private static bool _broken;
@@ -33,14 +26,30 @@ internal static class FmodSound
     {
         get
         {
-            if (!_resolved)
+            if (_available == null)
             {
-                _resolved = true;
-                _runtimeManager = Il2CppNames.FindInteropType("FMODUnity.RuntimeManager");
+                try
+                {
+                    _available = FmodInitialized();
+                }
+                catch (Exception ex)
+                {
+                    _available = false;
+                    Status = "FMOD not reachable: " + ex.Message;
+                    ModLog.Warn("Dash sound: " + Status);
+                }
             }
 
-            return _runtimeManager != null;
+            return _available.Value;
         }
+    }
+
+    // Separate method: if the FMOD interop assembly were missing, the TypeLoadException surfaces here, inside the try above.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static bool FmodInitialized()
+    {
+        _ = FMODUnity.RuntimeManager.IsInitialized;
+        return true;
     }
 
     /// <summary>Pick the event ahead of time (reading the bank list can take a moment), e.g. a few seconds into a run.</summary>
@@ -57,12 +66,12 @@ internal static class FmodSound
 
         try
         {
-            PlayPath(_eventPath!, position);
+            FMODUnity.RuntimeManager.PlayOneShot(_eventPath!, position);
         }
         catch (Exception ex)
         {
             _broken = true;
-            Status = $"playing '{_eventPath}' failed: {(ex.InnerException ?? ex).Message}";
+            Status = $"playing '{_eventPath}' failed: {ex.Message}";
             ModLog.Warn("Dash sound: " + Status);
         }
     }
@@ -74,37 +83,16 @@ internal static class FmodSound
         if (path.Length == 0 || FailedPaths.Contains(path) || !Available) return;
         try
         {
-            PlayPath(path, position);
+            FMODUnity.RuntimeManager.PlayOneShot(path, position);
         }
         catch (Exception ex)
         {
             FailedPaths.Add(path);
-            ModLog.Warn($"FMOD event '{path}' failed ({(ex.InnerException ?? ex).Message}); it won't be played again this session.");
+            ModLog.Warn($"FMOD event '{path}' failed ({ex.Message}); it won't be played again this session.");
         }
     }
 
     private static readonly HashSet<string> FailedPaths = new(StringComparer.Ordinal);
-
-    private static void PlayPath(string path, Vector3 position)
-    {
-        // Preferred: RuntimeManager.PlayOneShot(string path, Vector3 position)
-        var playOneShot = _runtimeManager!.GetMethods(Static).FirstOrDefault(m =>
-            m.Name == "PlayOneShot" && m.GetParameters().Length == 2 &&
-            m.GetParameters()[0].ParameterType == typeof(string) && m.GetParameters()[1].ParameterType == typeof(Vector3));
-        if (playOneShot != null)
-        {
-            playOneShot.Invoke(null, new object[] { path, position });
-            return;
-        }
-
-        // Fallback: instance = RuntimeManager.CreateInstance(path); instance.start(); instance.release();
-        var create = _runtimeManager.GetMethods(Static).FirstOrDefault(m =>
-            m.Name == "CreateInstance" && m.GetParameters().Length == 1 && m.GetParameters()[0].ParameterType == typeof(string));
-        if (create == null) throw new MissingMethodException("RuntimeManager has neither PlayOneShot(string, Vector3) nor CreateInstance(string)");
-        var instance = create.Invoke(null, new object[] { path });
-        instance?.GetType().GetMethod("start", Instance, null, Type.EmptyTypes, null)?.Invoke(instance, null);
-        instance?.GetType().GetMethod("release", Instance, null, Type.EmptyTypes, null)?.Invoke(instance, null);
-    }
 
     private static void Pick()
     {
@@ -131,55 +119,38 @@ internal static class FmodSound
 
         Status = _eventPath != null
             ? $"auto-picked FMOD event '{_eventPath}' (out of {events.Count}); set Sound.FmodEvent to choose another"
-            : $"no dash-like FMOD event among {events.Count} (see the discovery report and set Sound.FmodEvent)";
+            : $"no dash-like FMOD event among {events.Count} (set Sound.FmodEvent)";
         ModLog.Info("Dash sound: " + Status);
     }
 
-    /// <summary>Every event path in the game's loaded FMOD banks (empty if the FMOD API can't be reached).</summary>
+    /// <summary>Every event path in the game's loaded FMOD banks (empty if FMOD can't be reached).</summary>
     public static List<string> ListEvents()
     {
         var result = new List<string>();
         if (!Available) return result;
         try
         {
-            var system = _runtimeManager!.GetProperty("StudioSystem", Static)?.GetValue(null);
-            if (system == null) return result;
-            foreach (var bank in OutArray(system, "getBankList"))
-            foreach (var description in OutArray(bank, "getEventList"))
+            var system = FMODUnity.RuntimeManager.StudioSystem;
+            system.getBankList(out var banks);
+            if (banks == null) return result;
+            foreach (var bank in banks)
             {
-                var path = OutString(description, "getPath");
-                if (!string.IsNullOrEmpty(path)) result.Add(path!);
-                if (result.Count >= 5000) return result;
+                bank.getEventList(out var descriptions);
+                if (descriptions == null) continue;
+                foreach (var description in descriptions)
+                {
+                    description.getPath(out var path);
+                    if (!string.IsNullOrEmpty(path)) result.Add(path);
+                    if (result.Count >= 5000) return result;
+                }
             }
         }
         catch (Exception ex)
         {
-            ModLog.Warn($"Listing FMOD events failed: {(ex.InnerException ?? ex).Message}");
+            ModLog.Warn($"Listing FMOD events failed: {ex.Message}");
         }
 
         result.Sort(StringComparer.Ordinal);
         return result;
-    }
-
-    // FMOD's C# API returns results through out parameters: getBankList(out Bank[] array), getPath(out string path).
-    private static IEnumerable<object> OutArray(object target, string method)
-    {
-        var m = target.GetType().GetMethods(Instance).FirstOrDefault(x => x.Name == method && x.GetParameters().Length == 1 && x.GetParameters()[0].IsOut);
-        if (m == null) yield break;
-        var args = new object?[1];
-        m.Invoke(target, args);
-        if (args[0] is not IEnumerable items) yield break;
-        foreach (var item in items)
-            if (item != null)
-                yield return item;
-    }
-
-    private static string? OutString(object target, string method)
-    {
-        var m = target.GetType().GetMethods(Instance).FirstOrDefault(x => x.Name == method && x.GetParameters().Length == 1 && x.GetParameters()[0].IsOut);
-        if (m == null) return null;
-        var args = new object?[1];
-        m.Invoke(target, args);
-        return args[0]?.ToString();
     }
 }

@@ -1,6 +1,6 @@
 {
   "name": "Dash",
-  "version_number": "0.5.1",
+  "version_number": "0.5.2",
   "website_url": "https://github.com/stefanws0/Spell-brigade-dash",
   "description": "A short Space/LB dash with i-frames, violet afterimages and a charge bar. Find the Dash card in the level-up shop, then upgrade it: more charges, faster refill, longer dashes, a damaging fire trail, no HP cost.",
   "dependencies": [

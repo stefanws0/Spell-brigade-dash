@@ -4,7 +4,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <AssemblyName>SpellBrigadeDash</AssemblyName>
     <RootNamespace>SpellBrigadeDash</RootNamespace>
-    <Version>0.5.1</Version>
+    <Version>0.5.2</Version>
     <!-- C# 10: newer versions emit extra compiler attributes (RefSafetyRules) that could clash with interop copies. -->
     <LangVersion>10</LangVersion>
     <!-- See CompilerAttributes.cs: the mod ships its own NullableAttribute because the game's interop exposes a broken one. -->
@@ -45,6 +45,18 @@
     <Reference Include="$(BepInExDir)\interop\*.dll" Private="false" />
   </ItemGroup>
 
+  <!--
+    Developer tools (discovery report, method tracer, game-class index): dotnet build -p:DevTools=true.
+    Normal builds and the Thunderstore zip leave them out: they search the loaded assemblies at runtime,
+    which Thunderstore's review flags. The mod itself references the game's classes directly.
+  -->
+  <PropertyGroup Condition="'$(DevTools)' == 'true'">
+    <DefineConstants>$(DefineConstants);DEVTOOLS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(DevTools)' != 'true'">
+    <Compile Remove="Discovery\**" />
+  </ItemGroup>
+
   <!-- The dash cards' own icons (art/icons/*.png), built into the DLL; see Game/CardIcons.cs. -->
   <ItemGroup>
     <EmbeddedResource Include="..\..\art\icons\*.png" LogicalName="SpellBrigadeDash.Icons.%(Filename)%(Extension)" />
@@ -66,6 +78,7 @@
 
   <!-- dotnet build -c Release -t:Package  → dist/Dash-<version>.zip, ready for r2modman/Gale/Thunderstore -->
   <Target Name="Package" DependsOnTargets="Build">
+    <Error Condition="'$(DevTools)' == 'true'" Text="Don't package a DevTools build: build the zip without -p:DevTools=true." />
     <PropertyGroup>
       <RepoRoot>$(MSBuildThisFileDirectory)..\..\</RepoRoot>
       <StageDir>$(BaseIntermediateOutputPath)package\</StageDir>

@@ -23,7 +23,9 @@ internal sealed class PlayerInfo
     public GameObject Root = null!;
     public IntPtr RootPtr;
     public string ComponentName = "";
-    public List<ComponentView> Views = new();
+    public GameplayPlayer Player = null!;
+    public PlayerHealthContainer? Health;
+    public PlayerMotor? Motor;
     public MoveMode Mode;
     public Rigidbody2D? Rb2D;
     public Rigidbody? Rb;
@@ -92,28 +94,15 @@ internal sealed class PlayerInfo
 }
 
 /// <summary>
-/// Finds the wizards in the scene and decides which one is yours. Fully heuristic until the
-/// discovery report tells us the game's real player class (then set GameHooks.PlayerComponent).
+/// Finds the wizards in the scene (the game's <c>GameplayPlayer</c> components) and decides which one is yours
+/// (<c>NetworkBehaviour.IsOwner</c>; with only one wizard in the scene that one).
 /// </summary>
 internal sealed class PlayerLocator
 {
-    private static readonly string[] ExactNames =
-    {
-        "PlayerController", "Player", "PlayerCharacter", "PlayerMovement", "PlayerMotor", "Wizard", "WizardController",
-        "PlayerWizard", "LocalPlayer", "Hero", "HeroController", "PlayerBehaviour", "PlayerBehavior", "PlayerEntity", "PlayerUnit",
-    };
-
-    private static readonly string[] NegativeTokens =
-    {
-        "Camera", "UI", "Hud", "HUD", "Menu", "Manager", "Spawner", "Spawn", "Input", "Settings", "Data", "Lobby", "Audio", "Sound",
-        "Select", "Preview", "Portrait", "Icon", "Button", "Card", "Panel", "Screen", "Indicator", "Arrow", "Marker", "Spell",
-        "Projectile", "Enemy", "Pickup", "Loot", "Name", "Label", "Text", "Bar", "Ping", "Emote", "Chat", "Cursor", "Aim", "Visual",
-        "Animation", "Animator", "Shadow", "Effect", "Fx", "FX", "Sfx", "Outline", "Collector", "Magnet", "Range", "Trigger",
-    };
+    private const string PlayerClass = nameof(GameplayPlayer);
 
     private readonly Dictionary<IntPtr, PlayerInfo> _known = new();
     private float _nextSearch;
-    private Type? _knownType;
 
     public PlayerInfo? Local { get; private set; }
     public List<PlayerInfo> Remotes { get; } = new();
@@ -121,7 +110,6 @@ internal sealed class PlayerLocator
     /// <summary>Raised when your wizard is found for the first time or replaced by a new object (new run).</summary>
     public event Action<PlayerInfo>? LocalChanged;
 
-    public List<string> LastCandidates { get; } = new();
     public string LastSearchSummary { get; private set; } = "not searched yet";
 
     public void Update(float now)
@@ -144,49 +132,62 @@ internal sealed class PlayerLocator
 
     public void ForceSearch() => _nextSearch = 0f;
 
-    private string[]? _deadMembers;
-
+    /// <summary>A downed wizard is a ghost (<c>PlayerMotor.isGhost</c>) until revived: no dashing then.</summary>
     public bool IsDead(PlayerInfo p)
     {
-        _deadMembers ??= ModConfig.SplitList(ModConfig.DeadMembers.Value);
-        return Reflect.TryReadAnyBool(p.Views, _deadMembers, out var dead, out _) && dead;
+        try
+        {
+            var motor = p.Motor;
+            return motor != null && motor.isGhost;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     // ------------------------------------------------------------------------------------------
 
     private void Search()
     {
-        var anchors = FindPlayerAnchors(out var className);
-        if (anchors.Count == 0)
-        {
-            LastSearchSummary = "no player-like component found";
-            return;
-        }
-
         var players = new List<PlayerInfo>();
-        foreach (var go in anchors)
+        foreach (var c in UnityFind.All(typeof(GameplayPlayer)))
         {
-            var ptr = go.Pointer;
+            var gp = c.TryCast<GameplayPlayer>();
+            if (gp == null) continue;
+            var ptr = gp.gameObject.Pointer;
             if (!_known.TryGetValue(ptr, out var info) || info.IsDestroyed)
             {
-                info = Build(go, className);
+                info = Build(gp);
                 _known[ptr] = info;
             }
 
             players.Add(info);
         }
 
-        // Decide which one is ours. A "this is the local player" flag always wins; otherwise keep the
-        // wizard we already picked (so heuristics can't flip mid-run and reset the run's upgrades).
-        var localMembers = ModConfig.SplitList(ModConfig.LocalPlayerMembers.Value);
+        if (players.Count == 0)
+        {
+            LastSearchSummary = "no GameplayPlayer in the scene";
+            return;
+        }
+
+        // Decide which one is ours. The game's owner flag wins; otherwise keep the wizard we already picked (so a
+        // guess can't flip mid-run and reset the run's upgrades).
         PlayerInfo? local = null;
         foreach (var p in players)
         {
-            if (Reflect.TryReadAnyBool(p.Views, localMembers, out var isLocal, out var where))
+            bool owner;
+            try
             {
-                p.LocalReason = $"{where} = {isLocal}";
-                if (isLocal && local == null) local = p;
+                owner = p.Player.IsOwner;
             }
+            catch
+            {
+                continue;
+            }
+
+            p.LocalReason = $"GameplayPlayer.IsOwner = {owner}";
+            if (owner && local == null) local = p;
         }
 
         if (local == null && Local != null && !Local.IsDestroyed && players.Contains(Local)) local = Local;
@@ -207,130 +208,31 @@ internal sealed class PlayerLocator
         if (local != null && !ReferenceEquals(local, Local))
         {
             Local = local;
-            _knownType ??= Il2CppNames.FindInteropType(className);
-            ModLog.Info($"Local wizard: '{local.Root.name}' via {className} ({local.LocalReason}), mode {local.Mode}, radius {local.Radius:0.00}, " +
+            ModLog.Info($"Local wizard: '{local.Root.name}' ({local.LocalReason}), mode {local.Mode}, radius {local.Radius:0.00}, " +
                         $"body '{(local.MainRenderer != null ? local.MainRenderer.gameObject.name : "none")}', {Remotes.Count} other player(s).");
             LocalChanged?.Invoke(local);
         }
 
-        LastSearchSummary = $"class {className}: {players.Count} player(s), local = {(Local != null ? Local.Root.name : "none")}";
+        LastSearchSummary = $"{players.Count} {PlayerClass}(s), local = {(Local != null ? Local.Root.name : "none")}";
 
         // forget destroyed entries
         foreach (var dead in _known.Where(kv => kv.Value.IsDestroyed).Select(kv => kv.Key).ToList()) _known.Remove(dead);
     }
 
-    private List<GameObject> FindPlayerAnchors(out string className)
+    private static PlayerInfo Build(GameplayPlayer gp)
     {
-        // 1) explicit config
-        var configured = ModConfig.PlayerComponent.Value.Trim();
-        if (!string.IsNullOrEmpty(configured) && !configured.Equals("auto", StringComparison.OrdinalIgnoreCase))
+        var anchor = gp.gameObject;
+        ModLog.Step($"player: reading '{anchor.name}' ({PlayerClass})");
+        var info = new PlayerInfo { Anchor = anchor, ComponentName = PlayerClass, Player = gp };
+        try
         {
-            className = configured;
-            var t = Il2CppNames.FindInteropType(configured);
-            if (t == null)
-            {
-                ModLog.WarnOnce("cfg-player-type", $"GameHooks.PlayerComponent '{configured}' not found among interop types; falling back to auto.");
-            }
-            else
-            {
-                return UnityFind.All(t).Select(c => c.gameObject).ToList();
-            }
+            info.Health = gp.HealthContainer;
+            info.Motor = gp.PlayerMotor;
         }
-
-        // 2) class learned from an earlier successful auto search (cheap)
-        if (_knownType != null)
+        catch (Exception ex)
         {
-            className = _knownType.Name;
-            var found = UnityFind.All(_knownType).Select(c => c.gameObject).ToList();
-            if (found.Count > 0) return found;
+            ModLog.Warn($"Reading the wizard's health/motor failed: {ex.Message}");
         }
-
-        // 3) scan every MonoBehaviour and score its class name
-        ModLog.StepOnce("scan", "player: first scan of all MonoBehaviours");
-        LastCandidates.Clear();
-        var bestPerClass = new Dictionary<string, (int score, List<GameObject> gos)>();
-        foreach (var c in UnityFind.All(typeof(MonoBehaviour)))
-        {
-            List<string> chain;
-            try
-            {
-                chain = Il2CppNames.Chain(c);
-            }
-            catch
-            {
-                continue;
-            }
-
-            var cls = chain.Count > 0 ? chain[0] : "?";
-            var score = Score(chain);
-            if (score < 6) continue;
-
-            var go = c.gameObject;
-            score += PhysicsBonus(go);
-            if (!bestPerClass.TryGetValue(cls, out var entry)) entry = (score, new List<GameObject>());
-            entry.score = Math.Max(entry.score, score);
-            entry.gos.Add(go);
-            bestPerClass[cls] = entry;
-        }
-
-        foreach (var kv in bestPerClass.OrderByDescending(kv => kv.Value.score))
-            LastCandidates.Add($"{kv.Key} (score {kv.Value.score}, {kv.Value.gos.Count} object(s))");
-
-        if (bestPerClass.Count == 0)
-        {
-            className = "";
-            return new List<GameObject>();
-        }
-
-        var best = bestPerClass.OrderByDescending(kv => kv.Value.score).First();
-        className = best.Key;
-        return best.Value.gos.GroupBy(g => g.Pointer).Select(g => g.First()).ToList();
-    }
-
-    private static int Score(List<string> chain)
-    {
-        var score = 0;
-        foreach (var full in chain)
-        {
-            if (full.StartsWith("UnityEngine.", StringComparison.Ordinal)) break;
-            var name = full.Contains('.') ? full[(full.LastIndexOf('.') + 1)..] : full;
-            var s = 0;
-            if (ExactNames.Contains(name)) s += 10;
-            if (name.Contains("Player")) s += 6;
-            if (name.Contains("Wizard")) s += 5;
-            if (name.Contains("Hero")) s += 3;
-            if (name.Contains("Character")) s += 2;
-            if (name.Contains("Movement") || name.Contains("Motor") || name.Contains("Controller")) s += 2;
-            foreach (var neg in NegativeTokens)
-                if (name.Contains(neg, StringComparison.Ordinal))
-                    s -= 8;
-            score = Math.Max(score, s);
-        }
-
-        return score;
-    }
-
-    private static int PhysicsBonus(GameObject go)
-    {
-        var bonus = 0;
-        var t = go.transform;
-        for (var i = 0; i < 3 && t != null; i++, t = t.parent)
-        {
-            var g = t.gameObject;
-            if (UnityFind.Has<Rigidbody2D>(g) || UnityFind.Has<Rigidbody>(g) || UnityFind.Has<CharacterController>(g))
-            {
-                bonus += 4;
-                break;
-            }
-        }
-
-        return bonus;
-    }
-
-    private static PlayerInfo Build(GameObject anchor, string className)
-    {
-        ModLog.Step($"player: reading '{anchor.name}' ({className})");
-        var info = new PlayerInfo { Anchor = anchor, ComponentName = className };
 
         // Movement root: nearest object (self or parents) with a physics body; else self.
         GameObject? root = null;
@@ -359,15 +261,15 @@ internal sealed class PlayerLocator
             ? MoveMode.Transform2D
             : MoveMode.Transform3D;
 
-        // Components to read members from: anchor, root and everything in between.
+        // The anchor, the root and every object in between.
         var seen = new HashSet<IntPtr>();
         for (var tr = anchor.transform; tr != null; tr = tr.parent)
         {
-            if (seen.Add(tr.gameObject.Pointer)) info.Views.AddRange(ComponentView.Of(tr.gameObject));
+            seen.Add(tr.gameObject.Pointer);
             if (tr.gameObject.Pointer == root.Pointer) break;
         }
 
-        if (seen.Add(root.Pointer)) info.Views.AddRange(ComponentView.Of(root));
+        seen.Add(root.Pointer);
 
         // Every GameObject that "is" this wizard (for i-frame checks and cast filtering).
         foreach (var child in root.GetComponentsInChildren<Transform>(true)) info.GameObjectPtrs.Add(child.gameObject.Pointer);
